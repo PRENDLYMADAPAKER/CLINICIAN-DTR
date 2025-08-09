@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DTR Time In</title>
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        background: #0f1724;
+        color: #fff;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        text-align: center;
+        padding: 20px;
+    }
+    .card {
+        background: #111827;
+        padding: 20px;
+        border-radius: 10px;
+        max-width: 400px;
+        width: 100%;
+        box-shadow: 0 6px 18px rgba(2,6,23,0.6);
+    }
+    h1 {
+        font-size: 20px;
+        margin-bottom: 10px;
+    }
+    .status {
+        margin-top: 15px;
+        font-size: 16px;
+    }
+</style>
+</head>
+<body>
+
+<div class="card">
+    <h1>Daily Time Record</h1>
+    <div id="status" class="status">Processing your Time In...</div>
+</div>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+<script>
+    // Your Firebase config
+    const firebaseConfig = {
+        apiKey: "AIzaSyBYYZrsZECXM2UpW4-38sGQLaPqAqkjSWI",
+        authDomain: "dtr-project-66048.firebaseapp.com",
+        databaseURL: "https://dtr-project-66048-default-rtdb.asia-southeast1.firebasedatabase.app",
+        projectId: "dtr-project-66048",
+        storageBucket: "dtr-project-66048.firebasestorage.app",
+        messagingSenderId: "271445506225",
+        appId: "1:271445506225:web:fcb04d0454e1302de14a90",
+        measurementId: "G-R22CLKSPCP"
+    };
+
+    // Init Firebase
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    // Helpers
+    function pad(n) { return n < 10 ? '0' + n : n; }
+    function getDateStr(d) {
+        return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+    }
+    function getTimeStr(d) {
+        return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+    }
+
+    const statusEl = document.getElementById('status');
+    const params = new URLSearchParams(window.location.search);
+    const user = params.get('user');
+
+    if (!user) {
+        statusEl.textContent = "No user specified in link.";
+    } else {
+        const now = new Date();
+        const dateStr = getDateStr(now);
+        const timeStr = getTimeStr(now);
+        const refPath = `dtr_logs/${dateStr}/${user}`;
+
+        // Check if already clocked in
+        db.ref(refPath).once('value')
+            .then(snapshot => {
+                if (snapshot.exists()) {
+                    statusEl.innerHTML = `⏳ <strong>${user}</strong> already clocked in today at <strong>${snapshot.val().timeIn}</strong>.`;
+                } else {
+                    // Save new time in
+                    db.ref(refPath).set({
+                        timeIn: timeStr,
+                        timestamp: Date.now()
+                    }).then(() => {
+                        statusEl.innerHTML = `✅ <strong>${user}</strong> Time In recorded at <strong>${timeStr}</strong>.`;
+                    }).catch(err => {
+                        statusEl.textContent = "Error recording Time In: " + err.message;
+                    });
+                }
+            })
+            .catch(err => {
+                statusEl.textContent = "Error checking record: " + err.message;
+            });
+    }
+</script>
+
+</body>
+</html>
