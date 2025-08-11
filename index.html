@@ -1,113 +1,187 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>User Panel - DTR</title>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <title>User DTR Panel</title>
   <style>
-    body { font-family: Arial, sans-serif; background: #f4f4f4; text-align: center; padding: 20px; }
-    .container { background: #fff; padding: 20px; border-radius: 10px; max-width: 400px; margin: auto; box-shadow: 0 0 10px rgba(0,0,0,0.1);}
-    button { padding: 10px; margin: 10px; border: none; background: #007bff; color: #fff; cursor: pointer; border-radius: 5px; }
-    button:hover { background: #0056b3; }
-    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-    th, td { border: 1px solid #ddd; padding: 8px; }
-    th { background: #007bff; color: white; }
+    body {
+      font-family: Arial, sans-serif;
+      background: #111;
+      color: white;
+      text-align: center;
+      padding: 20px;
+    }
+    .form-box {
+      background: rgba(255, 255, 255, 0.1);
+      padding: 20px;
+      border-radius: 10px;
+      max-width: 400px;
+      margin: auto;
+    }
+    input {
+      padding: 10px;
+      margin: 5px;
+      width: 90%;
+    }
+    button {
+      padding: 10px;
+      background: #28a745;
+      border: none;
+      color: white;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    button:hover {
+      background: #218838;
+    }
+    #qrCode {
+      margin-top: 20px;
+    }
   </style>
 </head>
 <body>
 
-<div class="container">
-  <h2>User Panel - Daily Time Record</h2>
-  <div id="login-section">
-    <input type="email" id="email" placeholder="Email"><br>
-    <input type="password" id="password" placeholder="Password"><br>
-    <button id="loginBtn">Login</button>
-  </div>
+<h2>User Daily Time Record</h2>
 
-  <div id="user-section" style="display:none;">
-    <h3>Welcome, <span id="user-name"></span></h3>
-    <div id="qrcode"></div>
-    <button id="logoutBtn">Logout</button>
-
-    <h3>Your Time-In Records</h3>
-    <table>
-      <thead>
-        <tr><th>Date</th><th>Time-In</th></tr>
-      </thead>
-      <tbody id="records"></tbody>
-    </table>
-  </div>
+<div class="form-box" id="authBox">
+  <h3>Login</h3>
+  <input type="email" id="loginEmail" placeholder="Email"><br>
+  <input type="password" id="loginPassword" placeholder="Password"><br>
+  <button onclick="login()">Login</button>
+  <p>Don't have an account? <a href="#" onclick="showRegister()">Create Account</a></p>
 </div>
 
+<div class="form-box" id="registerBox" style="display:none;">
+  <h3>Create Account</h3>
+  <input type="text" id="regName" placeholder="Full Name"><br>
+  <input type="email" id="regEmail" placeholder="Email"><br>
+  <input type="password" id="regPassword" placeholder="Password"><br>
+  <button onclick="register()">Register</button>
+  <p>Already have an account? <a href="#" onclick="showLogin()">Login</a></p>
+</div>
+
+<div id="userPanel" style="display:none;">
+  <h3>Welcome, <span id="displayName"></span></h3>
+  <p>Your QR Code (for Time In):</p>
+  <canvas id="qrCode"></canvas>
+  <h4>Your DTR Records</h4>
+  <table border="1" style="margin:auto; color:white;">
+    <thead>
+      <tr><th>Date</th><th>Time In</th></tr>
+    </thead>
+    <tbody id="dtrTable"></tbody>
+  </table>
+  <br>
+  <button onclick="logout()">Logout</button>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+
 <script>
-  // Firebase config
-  const firebaseConfig = {
-    apiKey: "AIzaSyBYYZrsZECXM2UpW4-38sGQLaPqAqkjSWI",
-    authDomain: "dtr-project-66048.firebaseapp.com",
-    databaseURL: "https://dtr-project-66048-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "dtr-project-66048",
-    storageBucket: "dtr-project-66048.appspot.com",
-    messagingSenderId: "271445506225",
-    appId: "1:271445506225:web:fcb04d0454e1302de14a90",
-    measurementId: "G-R22CLKSPCP"
-  };
+const firebaseConfig = {
+  apiKey: "AIzaSyBYYZrsZECXM2UpW4-38sGQLaPqAqkjSWI",
+  authDomain: "dtr-project-66048.firebaseapp.com",
+  databaseURL: "https://dtr-project-66048-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "dtr-project-66048",
+  storageBucket: "dtr-project-66048.appspot.com",
+  messagingSenderId: "271445506225",
+  appId: "1:271445506225:web:fcb04d0454e1302de14a90",
+  measurementId: "G-R22CLKSPCP"
+};
 
-  // Initialize Firebase
-  const app = firebase.initializeApp(firebaseConfig);
-  const auth = firebase.auth();
-  const db = firebase.database();
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.database();
 
-  const loginSection = document.getElementById("login-section");
-  const userSection = document.getElementById("user-section");
-  const userNameEl = document.getElementById("user-name");
-  const recordsEl = document.getElementById("records");
+function showRegister() {
+  document.getElementById("authBox").style.display = "none";
+  document.getElementById("registerBox").style.display = "block";
+}
+function showLogin() {
+  document.getElementById("authBox").style.display = "block";
+  document.getElementById("registerBox").style.display = "none";
+}
 
-  document.getElementById("loginBtn").addEventListener("click", () => {
-    const email = document.getElementById("email").value;
-    const password = document.getElementById("password").value;
-    auth.signInWithEmailAndPassword(email, password)
-      .catch(err => alert(err.message));
-  });
+function register() {
+  const name = document.getElementById("regName").value;
+  const email = document.getElementById("regEmail").value;
+  const password = document.getElementById("regPassword").value;
 
-  document.getElementById("logoutBtn").addEventListener("click", () => {
-    auth.signOut();
-  });
+  if (!name || !email || !password) {
+    alert("Please fill in all fields");
+    return;
+  }
 
-  auth.onAuthStateChanged(user => {
-    if (user) {
-      loginSection.style.display = "none";
-      userSection.style.display = "block";
-      userNameEl.textContent = user.email;
+  auth.createUserWithEmailAndPassword(email, password)
+    .then(userCredential => {
+      const user = userCredential.user;
+      const uid = user.uid;
+
+      // Save profile
+      db.ref("users/" + uid + "/profile").set({
+        name: name,
+        email: email
+      });
 
       // Generate QR code
-      document.getElementById("qrcode").innerHTML = "";
-      new QRCode(document.getElementById("qrcode"), {
-        text: user.uid,
-        width: 150,
-        height: 150
+      const canvas = document.getElementById("qrCode");
+      QRCode.toCanvas(canvas, uid, { width: 200 }, function (error) {
+        if (error) console.error(error);
+        // Save QR as Data URL
+        const qrDataUrl = canvas.toDataURL();
+        db.ref("users/" + uid + "/profile/qrCode").set(qrDataUrl);
       });
 
-      // Load past records
-      db.ref("attendance").on("value", snapshot => {
-        recordsEl.innerHTML = "";
-        snapshot.forEach(dateSnap => {
-          const date = dateSnap.key;
-          const userRecord = dateSnap.child(user.uid).val();
-          if (userRecord) {
-            recordsEl.innerHTML += `<tr><td>${date}</td><td>${userRecord.timeIn}</td></tr>`;
-          }
-        });
-      });
+      alert("Account created successfully! You are now logged in.");
+    })
+    .catch(error => alert(error.message));
+}
 
-    } else {
-      loginSection.style.display = "block";
-      userSection.style.display = "none";
-    }
-  });
+function login() {
+  const email = document.getElementById("loginEmail").value;
+  const password = document.getElementById("loginPassword").value;
+  auth.signInWithEmailAndPassword(email, password)
+    .catch(error => alert(error.message));
+}
+
+auth.onAuthStateChanged(user => {
+  if (user) {
+    document.getElementById("authBox").style.display = "none";
+    document.getElementById("registerBox").style.display = "none";
+    document.getElementById("userPanel").style.display = "block";
+
+    const uid = user.uid;
+    db.ref("users/" + uid + "/profile/name").once("value").then(snap => {
+      document.getElementById("displayName").innerText = snap.val();
+    });
+
+    // Generate and show QR code
+    const canvas = document.getElementById("qrCode");
+    QRCode.toCanvas(canvas, uid, { width: 200 });
+
+    // Load DTR table
+    const tableBody = document.getElementById("dtrTable");
+    db.ref("users/" + uid + "/dtr").on("value", snap => {
+      tableBody.innerHTML = "";
+      snap.forEach(child => {
+        const date = child.key;
+        const timeIn = child.val().timeIn;
+        tableBody.innerHTML += `<tr><td>${date}</td><td>${timeIn}</td></tr>`;
+      });
+    });
+
+  } else {
+    document.getElementById("authBox").style.display = "block";
+    document.getElementById("registerBox").style.display = "none";
+    document.getElementById("userPanel").style.display = "none";
+  }
+});
+
+function logout() {
+  auth.signOut();
+}
 </script>
 
 </body>
