@@ -271,9 +271,10 @@
       <video id="video" muted autoplay playsinline></video>
       <div id="result">Initializing camera...</div>
 
-      <div id="profile-info" aria-live="polite">
+      <div id="profile-info">
         <div><strong>Name:</strong> <span id="profile-name"></span></div>
         <div><strong>Email:</strong> <span id="profile-email"></span></div>
+        <div><strong>Clinical Level:</strong> <span id="profile-clinical"></span></div>
       </div>
 
       <div id="controls">
@@ -295,12 +296,13 @@
             <th data-key="uid">User ID <span class="sort-arrow"></span></th>
             <th data-key="name">Name <span class="sort-arrow"></span></th>
             <th data-key="email">Email <span class="sort-arrow"></span></th>
+            <th data-key="clinicalLevel">Clinical Level <span class="sort-arrow"></span></th>
             <th data-key="date">Date <span class="sort-arrow"></span></th>
             <th data-key="time">Time In <span class="sort-arrow"></span></th>
           </tr>
         </thead>
         <tbody id="logs-body">
-          <tr><td colspan="5" class="no-records">Loading logs...</td></tr>
+          <tr><td colspan="6" class="no-records">Loading logs...</td></tr>
         </tbody>
       </table>
 
@@ -314,13 +316,12 @@
     </section>
   </main>
 
-  <!-- ZXing library - UMD -->
+  <!-- ZXing library -->
   <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.19.1/umd/index.min.js"></script>
   <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
   import { getDatabase, ref, get, set, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
-  // Your Firebase config
   const firebaseConfig = {
     apiKey: "AIzaSyBYYZrsZECXM2UpW4-38sGQLaPqAqkjSWI",
     authDomain: "dtr-project-66048.firebaseapp.com",
@@ -332,19 +333,17 @@
     measurementId: "G-R22CLKSPCP"
   };
 
-  // Initialize Firebase app and database
   const app = initializeApp(firebaseConfig);
   const db = getDatabase(app);
 
-  // ZXing scanner instance
   const codeReader = new ZXing.BrowserQRCodeReader();
   const videoElement = document.getElementById('video');
 
-  // UI elements
   const resultDiv = document.getElementById('result');
   const profileInfo = document.getElementById('profile-info');
   const profileName = document.getElementById('profile-name');
   const profileEmail = document.getElementById('profile-email');
+  const profileClinical = document.getElementById('profile-clinical');
 
   const startBtn = document.getElementById('start-btn');
   const stopBtn = document.getElementById('stop-btn');
@@ -425,169 +424,192 @@
       startBtn.disabled = true;
       stopBtn.disabled = false;
     } catch (e) {
-      setResult('Error starting scanner: ' + e.message, 'error');
+      setResult('Camera error: ' + e.message, 'error');
     }
   }
-
   function stopScanner() {
     if (!scanning) return;
     codeReader.reset();
     scanning = false;
-    setResult('Scanner stopped.', 'warning');
+    setResult('Scanner stopped.', 'info');
     startBtn.disabled = false;
     stopBtn.disabled = true;
+    profileInfo.style.display = 'none';
   }
 
-  // Handle scan text (UID)
-  async function handleScan(scannedText) {
-    // Cooldown: avoid multiple same scans in short time
-    if (scanCooldowns[scannedText]) {
-      setResult('Scan ignored: cooldown active.', 'warning');
+  // Scan handling
+  async function handleScan(text) {
+    if (!scanning) return;
+    const uid = text.trim();
+    if (!uid) return;
+
+    const now = Date.now();
+    if (scanCooldowns[uid] && (now - scanCooldowns[uid]) < 5000) return;
+    scanCooldowns[uid] = now;
+
+    setResult(`Processing UID: ${uid} ...`, 'info');
+    profileInfo.style.display = 'none';
+
+    const dateStr = todayYMD();
+    const timeStr = timeHMS();
+
+    try {
+      const userRef = ref(db, `users/${uid}/profile`);
+      const userSnap = await get(userRef);
+      if (!userSnap.exists()) {
+        setResult(`UID ${uid} not registered.`, 'error');
+        return;
+      }
+      const profile = userSnap.val();
+
+      const clinicalLevel = profile.clinicalLevel || 'N/A';
+
+      const dtrRef = ref(db, `users/${uid}/dtr/${dateStr}`);
+      const dtrSnap = await get(dtrRef);
+      if (dtrSnap.exists()) {
+        setResult(`User ${profile.name} already timed in today at ${dtrSnap.val().timeIn}`, 'warning');
+        showProfile(profile.name, profile.email, clinicalLevel);
+        addToHistory(uid, profile.name, profile.email || '-', clinicalLevel, dateStr, dtrSnap.val().timeIn, false);
+        return;
+      }
+
+      await set(dtrRef, { timeIn: timeStr, date: dateStr, ts: Date.now() });
+      await set(ref(db, `timeIns/${dateStr}/${uid}`), {
+        uid, name: profile.name, email: profile.email || '-', clinicalLevel, date: dateStr, time: timeStr, ts: Date.now()
+      });
+
+      setResult(`Recorded time-in for ${profile.name} at ${timeStr}`, 'success');
+      showProfile(profile.name, profile.email, clinicalLevel);
+      addToHistory(uid, profile.name, profile.email || '-', clinicalLevel, dateStr, timeStr, true);
+    } catch (err) {
+      console.error('Error saving DTR:', err);
+      setResult('Error saving time-in: ' + err.message, 'error');
+      profileInfo.style.display = 'none';
+    }
+  }
+
+  function showProfile(name, email, clinicalLevel) {
+    profileName.textContent = name || '-';
+    profileEmail.textContent = email || '-';
+    profileClinical.textContent = clinicalLevel || '-';
+    profileInfo.style.display = 'block';
+  }
+
+  // Scan History Panel
+  function addToHistory(uid, name, email, clinicalLevel, date, time, success) {
+    const entry = { uid, name, email, clinicalLevel, date, time, success, ts: Date.now() };
+    scanHistory.unshift(entry);
+    renderHistory(historyFilterInput.value);
+  }
+  function renderHistory(filterText = '') {
+    const ft = filterText.toLowerCase();
+    const filtered = scanHistory.filter(e =>
+      e.uid.toLowerCase().includes(ft) ||
+      e.name.toLowerCase().includes(ft) ||
+      e.email.toLowerCase().includes(ft) ||
+      e.clinicalLevel.toLowerCase().includes(ft) ||
+      e.date.toLowerCase().includes(ft) ||
+      e.time.toLowerCase().includes(ft)
+    );
+    if (filtered.length === 0) {
+      historyList.innerHTML = '<div>No matching scans.</div>';
       return;
     }
-    scanCooldowns[scannedText] = true;
-    setTimeout(() => { delete scanCooldowns[scannedText]; }, 5000);
+    historyList.innerHTML = filtered.map(e => {
+      const color = e.success ? '#4ade80' : '#fbbf24';
+      return `<div style="color:${color};">
+        <strong>${escapeHtml(e.name)}</strong> (${escapeHtml(e.uid)}) — Clinical Level: ${escapeHtml(e.clinicalLevel)} — ${escapeHtml(e.date)} ${escapeHtml(e.time)}
+      </div>`;
+    }).join('');
+  }
+  historyFilterInput.addEventListener('input', () => {
+    renderHistory(historyFilterInput.value);
+  });
 
-    setResult(`Scanned: ${scannedText}`, 'success');
-
-    // Lookup user in Firebase database
-    const userRef = ref(db, `users/${scannedText}`);
-    try {
-      const snapshot = await get(userRef);
-      if (snapshot.exists()) {
-        const userData = snapshot.val();
-        // Display profile info
-        profileName.textContent = userData.name || 'N/A';
-        profileEmail.textContent = userData.email || 'N/A';
-        profileInfo.style.display = 'block';
-
-        // Record time-in with date/time in 'timein' node
-        const now = new Date();
-        const dateStr = todayYMD();
-        const timeStr = timeHMS();
-
-        const timeInRef = ref(db, `timein/${scannedText}/${dateStr}`);
-        await set(timeInRef, {
-          uid: scannedText,
-          name: userData.name,
-          email: userData.email,
-          date: dateStr,
-          time: timeStr,
-          timestamp: now.getTime()
-        });
-
-        setResult(`Time-in recorded for ${userData.name}`, 'success');
-
-        // Add to logsData & refresh logs UI
-        logsData.push({
-          uid: scannedText,
-          name: userData.name,
-          email: userData.email,
-          date: dateStr,
-          time: timeStr,
-          timestamp: now.getTime()
-        });
-        refreshLogsTable();
-
-        // Add to scan history UI
-        scanHistory.unshift({
-          text: scannedText,
-          time: now.toLocaleString()
-        });
-        refreshHistoryList();
-
-      } else {
-        setResult('User not found in database.', 'error');
-        profileInfo.style.display = 'none';
-      }
-    } catch (err) {
-      console.error(err);
-      setResult('Firebase error: ' + err.message, 'error');
-    }
+  // Logs panel: listen to Firebase timeIns updates
+  function listenLogs() {
+    const dateStr = todayYMD();
+    const logsRef = ref(db, `timeIns/${dateStr}`);
+    onValue(logsRef, (snapshot) => {
+      logsData = snapshot.val() ? Object.values(snapshot.val()) : [];
+      sortLogs(currentSort.key, currentSort.ascending);
+      renderLogs(logsSearch.value);
+    });
   }
 
-  // Refresh logs table according to logsData, current sort, and filter
-  function refreshLogsTable() {
-    let filtered = logsData;
-    const searchTerm = logsSearch.value.trim().toLowerCase();
-    if (searchTerm) {
-      filtered = filtered.filter(log =>
-        log.uid.toLowerCase().includes(searchTerm) ||
-        log.name.toLowerCase().includes(searchTerm) ||
-        log.email.toLowerCase().includes(searchTerm) ||
-        log.date.toLowerCase().includes(searchTerm) ||
-        log.time.toLowerCase().includes(searchTerm)
-      );
+  // Render logs table filtered by search
+  function renderLogs(filterText = '') {
+    const ft = filterText.toLowerCase();
+    const filtered = logsData.filter(e =>
+      e.uid.toLowerCase().includes(ft) ||
+      e.name.toLowerCase().includes(ft) ||
+      e.email.toLowerCase().includes(ft) ||
+      (e.clinicalLevel && e.clinicalLevel.toLowerCase().includes(ft)) ||
+      (e.date && e.date.toLowerCase().includes(ft)) ||
+      (e.time && e.time.toLowerCase().includes(ft))
+    );
+
+    if (filtered.length === 0) {
+      logsBody.innerHTML = `<tr><td colspan="6" class="no-records">No matching records</td></tr>`;
+      return;
     }
 
-    // Sort by currentSort.key
-    filtered.sort((a, b) => {
-      if (a[currentSort.key] < b[currentSort.key]) return currentSort.ascending ? -1 : 1;
-      if (a[currentSort.key] > b[currentSort.key]) return currentSort.ascending ? 1 : -1;
+    logsBody.innerHTML = filtered.map(entry =>
+      `<tr>
+        <td>${escapeHtml(entry.uid)}</td>
+        <td>${escapeHtml(entry.name)}</td>
+        <td>${escapeHtml(entry.email)}</td>
+        <td>${escapeHtml(entry.clinicalLevel || 'N/A')}</td>
+        <td>${escapeHtml(entry.date || '')}</td>
+        <td>${escapeHtml(entry.time)}</td>
+      </tr>`).join('');
+  }
+
+  // Sorting logs
+  function sortLogs(key, ascending) {
+    logsData.sort((a,b) => {
+      let valA = a[key] ? a[key].toString().toLowerCase() : '';
+      let valB = b[key] ? b[key].toString().toLowerCase() : '';
+      if (key === 'time' || key === 'date') {
+        // For date/time, compare as strings YYYY-MM-DD or HH:MM:SS works lex order
+      }
+      if (key === 'clinicalLevel') {
+        // If clinical levels are numeric strings, sort numerically, else lexicographically
+        const numA = parseInt(valA, 10);
+        const numB = parseInt(valB, 10);
+        if (!isNaN(numA) && !isNaN(numB)) {
+          return ascending ? numA - numB : numB - numA;
+        }
+      }
+      if (valA < valB) return ascending ? -1 : 1;
+      if (valA > valB) return ascending ? 1 : -1;
       return 0;
     });
-
-    // Build table rows
-    if (filtered.length === 0) {
-      logsBody.innerHTML = `<tr><td colspan="5" class="no-records">No records found.</td></tr>`;
-      return;
-    }
-    logsBody.innerHTML = filtered.map(log => `
-      <tr>
-        <td>${escapeHtml(log.uid)}</td>
-        <td>${escapeHtml(log.name)}</td>
-        <td>${escapeHtml(log.email)}</td>
-        <td>${escapeHtml(log.date)}</td>
-        <td>${escapeHtml(log.time)}</td>
-      </tr>
-    `).join('');
   }
 
-  // Refresh scan history UI
-  function refreshHistoryList() {
-    const filterTerm = historyFilterInput.value.trim().toLowerCase();
-    let items = scanHistory;
-    if (filterTerm) {
-      items = items.filter(item => item.text.toLowerCase().includes(filterTerm));
-    }
-    if (items.length === 0) {
-      historyList.innerHTML = `<div>No scans match filter.</div>`;
-      return;
-    }
-    historyList.innerHTML = items.map(item => `<div>${escapeHtml(item.text)} — <small>${escapeHtml(item.time)}</small></div>`).join('');
-  }
-
-  // Listen to logs search input
-  logsSearch.addEventListener('input', () => {
-    refreshLogsTable();
-  });
-
-  // Listen to history filter input
-  historyFilterInput.addEventListener('input', () => {
-    refreshHistoryList();
-  });
-
-  // Sorting header clicks
-  document.querySelectorAll('#logs-table thead th').forEach(th => {
+  // Handle table header clicks for sorting
+  document.querySelectorAll('#logs-table th').forEach(th => {
     th.addEventListener('click', () => {
       const key = th.getAttribute('data-key');
-      if (key) {
-        if (currentSort.key === key) {
-          currentSort.ascending = !currentSort.ascending;
-        } else {
-          currentSort.key = key;
-          currentSort.ascending = true;
-        }
-        refreshLogsTable();
-        updateSortArrows();
+      if (!key) return;
+
+      if (currentSort.key === key) {
+        currentSort.ascending = !currentSort.ascending;
+      } else {
+        currentSort.key = key;
+        currentSort.ascending = true;
       }
+      sortLogs(currentSort.key, currentSort.ascending);
+      renderLogs(logsSearch.value);
+      updateSortArrows();
     });
   });
 
-  // Update sort arrow UI
+  // Update sorting arrow icons in headers
   function updateSortArrows() {
-    document.querySelectorAll('#logs-table thead th').forEach(th => {
+    document.querySelectorAll('#logs-table th').forEach(th => {
       const arrowSpan = th.querySelector('.sort-arrow');
+      if (!arrowSpan) return;
       const key = th.getAttribute('data-key');
       if (key === currentSort.key) {
         arrowSpan.textContent = currentSort.ascending ? '▲' : '▼';
@@ -597,101 +619,66 @@
     });
   }
 
-  // Print logs
-  document.getElementById('print-btn').addEventListener('click', () => {
+  // Search logs input event
+  logsSearch.addEventListener('input', () => {
+    renderLogs(logsSearch.value);
+  });
+
+  // Export logs to CSV
+  function exportCSV() {
+    if (logsData.length === 0) {
+      alert('No data to export');
+      return;
+    }
+    const headers = ['User ID', 'Name', 'Email', 'Clinical Level', 'Date', 'Time In'];
+    const rows = logsData.map(e => [
+      e.uid,
+      e.name,
+      e.email,
+      e.clinicalLevel || 'N/A',
+      e.date || '',
+      e.time
+    ]);
+    let csvContent = 'data:text/csv;charset=utf-8,';
+    csvContent += headers.join(',') + '\r\n';
+    rows.forEach(row => {
+      csvContent += row.map(field => `"${field.replace(/"/g, '""')}"`).join(',') + '\r\n';
+    });
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `dtr_logs_${todayYMD()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  // Print logs table
+  function printLogs() {
     const printWindow = window.open('', '', 'width=900,height=600');
-    const rowsHtml = logsBody.innerHTML || '<tr><td colspan="5">No records to print.</td></tr>';
-    printWindow.document.write(`
-      <html>
-      <head><title>Print Logs</title>
-      <style>
-        body { font-family: Arial, sans-serif; padding: 20px; color: #000; }
-        table { border-collapse: collapse; width: 100%; }
-        th, td { border: 1px solid #000; padding: 8px; text-align: left; }
-      </style>
-      </head>
-      <body>
-        <h2>Attendance Logs</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>User ID</th><th>Name</th><th>Email</th><th>Date</th><th>Time In</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${rowsHtml}
-          </tbody>
-        </table>
-      </body>
-      </html>`);
+    printWindow.document.write('<html><head><title>Print DTR Logs</title>');
+    printWindow.document.write('<style>body{font-family:Arial,sans-serif;color:#222;}table{width:100%;border-collapse:collapse;}th,td{border:1px solid #ccc;padding:8px;text-align:left;}th{background:#eee;}</style>');
+    printWindow.document.write('</head><body>');
+    printWindow.document.write('<h2>DTR Logs - ' + todayYMD() + '</h2>');
+    printWindow.document.write(document.getElementById('logs-table').outerHTML);
+    printWindow.document.write('</body></html>');
     printWindow.document.close();
     printWindow.focus();
     printWindow.print();
-  });
-
-  // Export logs as CSV
-  document.getElementById('export-btn').addEventListener('click', () => {
-    let csv = "User ID,Name,Email,Date,Time In\n";
-    let filtered = logsData;
-    const searchTerm = logsSearch.value.trim().toLowerCase();
-    if (searchTerm) {
-      filtered = filtered.filter(log =>
-        log.uid.toLowerCase().includes(searchTerm) ||
-        log.name.toLowerCase().includes(searchTerm) ||
-        log.email.toLowerCase().includes(searchTerm) ||
-        log.date.toLowerCase().includes(searchTerm) ||
-        log.time.toLowerCase().includes(searchTerm)
-      );
-    }
-    filtered.forEach(log => {
-      csv += `"${log.uid}","${log.name}","${log.email}","${log.date}","${log.time}"\n`;
-    });
-
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `attendance_logs_${todayYMD()}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  });
-
-  // Load all logs initially from Firebase 'timein' node
-  async function loadAllLogs() {
-    const timeinRef = ref(db, 'timein');
-    try {
-      const snapshot = await get(timeinRef);
-      logsData = [];
-      if (snapshot.exists()) {
-        const allData = snapshot.val();
-        for (const uid in allData) {
-          const dates = allData[uid];
-          for (const dateKey in dates) {
-            const record = dates[dateKey];
-            logsData.push(record);
-          }
-        }
-      }
-      refreshLogsTable();
-      updateSortArrows();
-    } catch (err) {
-      setResult('Error loading logs: ' + err.message, 'error');
-    }
+    printWindow.close();
   }
 
-  // Button event listeners
-  startBtn.addEventListener('click', () => {
-    startScanner();
-  });
-  stopBtn.addEventListener('click', () => {
-    stopScanner();
-  });
+  // Event listeners for buttons
+  startBtn.addEventListener('click', startScanner);
+  stopBtn.addEventListener('click', stopScanner);
+  document.getElementById('export-btn').addEventListener('click', exportCSV);
+  document.getElementById('print-btn').addEventListener('click', printLogs);
 
-  // On load
+  // Initialize listeners & UI on load
   window.onload = () => {
-    loadAllLogs();
+    listenLogs();
+    updateSortArrows();
+    setResult('Scanner ready. Click "Start Scanner".', 'info');
   };
 </script>
 </body>
