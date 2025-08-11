@@ -5,19 +5,89 @@
   <title>DTR — User Panel (Register / Login / QR)</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
-    body{font-family:Inter,system-ui,Arial,sans-serif;background:#071427;color:#cbd5e1;display:flex;justify-content:center;padding:28px}
-    .card{background:rgba(255,255,255,0.03);padding:20px;border-radius:12px;max-width:460px;width:100%}
-    h1{color:#e6eef8;margin:0 0 12px;font-size:20px}
-    input, select{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);margin:8px 0;background:transparent;color:inherit;}
-    button{padding:10px 12px;border-radius:8px;border:none;background:linear-gradient(90deg,#06b6d4,#60a5fa);color:#021124;cursor:pointer}
-    .muted{color:#94a3b8;font-size:13px}
-    #qr{width:180px;height:180px;background:white;border-radius:8px;padding:8px;margin:12px auto;display:flex;align-items:center;justify-content:center}
-    table{width:100%;border-collapse:collapse;margin-top:12px;color:#cbd5e1}
-    th,td{padding:8px;text-align:left;border-bottom:1px solid rgba(255,255,255,0.03);font-size:13px}
-    .row{display:flex;gap:8px}
-    .linkbtn{background:transparent;border:1px solid rgba(255,255,255,0.04);color:var(--muted)}
-    .error{color:#ffb4b4}
-    .success{color:#b7f5d0}
+    body {
+      font-family: Inter, system-ui, Arial, sans-serif;
+      background: #071427;
+      color: #cbd5e1;
+      display: flex;
+      justify-content: center;
+      padding: 28px;
+    }
+    .card {
+      background: rgba(255,255,255,0.03);
+      padding: 20px;
+      border-radius: 12px;
+      max-width: 460px;
+      width: 100%;
+    }
+    h1 {
+      color: #e6eef8;
+      margin: 0 0 12px;
+      font-size: 20px;
+    }
+    input {
+      width: 100%;
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.04);
+      margin: 8px 0;
+      background: transparent;
+      color: inherit;
+      max-width: 350px;
+      margin-left: auto;
+      margin-right: auto;
+      display: block;
+    }
+    button {
+      padding: 10px 12px;
+      border-radius: 8px;
+      border: none;
+      background: linear-gradient(90deg,#06b6d4,#60a5fa);
+      color: #021124;
+      cursor: pointer;
+    }
+    .muted {
+      color: #94a3b8;
+      font-size: 13px;
+    }
+    #qr {
+      width: 180px;
+      height: 180px;
+      background: white;
+      border-radius: 8px;
+      padding: 8px;
+      margin: 12px auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+      color: #cbd5e1;
+    }
+    th, td {
+      padding: 8px;
+      text-align: left;
+      border-bottom: 1px solid rgba(255,255,255,0.03);
+      font-size: 13px;
+    }
+    .row {
+      display: flex;
+      gap: 8px;
+    }
+    .linkbtn {
+      background: transparent;
+      border: 1px solid rgba(255,255,255,0.04);
+      color: var(--muted);
+    }
+    .error {
+      color: #ffb4b4;
+    }
+    .success {
+      color: #b7f5d0;
+    }
   </style>
 </head>
 <body>
@@ -30,14 +100,6 @@
         <input id="regName" placeholder="Full name" />
         <input id="regEmail" type="email" placeholder="Email" />
         <input id="regPass" type="password" placeholder="Password (6+ chars)" />
-        <!-- Added Clinical Level dropdown -->
-        <select id="regLevel" aria-label="Select Clinical Level">
-          <option value="" disabled selected>Select Clinical Level</option>
-          <option value="42">Clinical Level 42</option>
-          <option value="41">Clinical Level 41</option>
-          <option value="32">Clinical Level 32</option>
-          <option value="31">Clinical Level 31</option>
-        </select>
         <div class="row" style="margin-top:8px">
           <button id="registerBtn">Create Account</button>
           <button id="switchToLogin" class="linkbtn">Login</button>
@@ -63,8 +125,6 @@
           <div class="muted">Signed in as</div>
           <div id="nameDisplay" style="color:#e6eef8;font-weight:600"></div>
           <div id="emailDisplay" class="muted"></div>
-          <!-- Added clinical level display -->
-          <div id="levelDisplay" class="muted"></div>
         </div>
         <div>
           <button id="logoutBtn" style="background:#ff6b6b">Logout</button>
@@ -121,37 +181,39 @@
     const switchToRegister = document.getElementById('switchToRegister');
     const messageEl = document.getElementById('message');
 
-    switchToLogin.onclick = () => { 
-      document.getElementById('registerForm').style.display='none'; 
-      document.getElementById('loginForm').style.display='block'; 
-      messageEl.textContent=''; 
-    }
-    switchToRegister.onclick = () => { 
-      document.getElementById('loginForm').style.display='none'; 
-      document.getElementById('registerForm').style.display='block'; 
-      messageEl.textContent=''; 
-    }
+    switchToLogin.onclick = () => {
+      document.getElementById('registerForm').style.display = 'none';
+      document.getElementById('loginForm').style.display = 'block';
+      messageEl.textContent = '';
+    };
+    switchToRegister.onclick = () => {
+      document.getElementById('loginForm').style.display = 'none';
+      document.getElementById('registerForm').style.display = 'block';
+      messageEl.textContent = '';
+    };
 
     // helper to generate QR base64 via temporary DOM
-    function generateQRCodeBase64(text){
-      return new Promise((resolve,reject)=>{
+    function generateQRCodeBase64(text) {
+      return new Promise((resolve, reject) => {
         const tmp = document.createElement('div');
-        tmp.style.position='absolute'; tmp.style.left='-9999px';
+        tmp.style.position = 'absolute';
+        tmp.style.left = '-9999px';
         document.body.appendChild(tmp);
-        try{
+        try {
           const qr = new QRCode(tmp, { text: text, width: 300, height: 300 });
-          setTimeout(()=>{
+          setTimeout(() => {
             const img = tmp.querySelector('img');
-            if(img && img.src) {
+            if (img && img.src) {
               resolve(img.src);
             } else {
+              // sometimes QRCode builds a canvas instead of img
               const canvas = tmp.querySelector('canvas');
-              if(canvas) resolve(canvas.toDataURL());
+              if (canvas) resolve(canvas.toDataURL());
               else reject(new Error('QR generation failed'));
             }
             document.body.removeChild(tmp);
           }, 300);
-        }catch(e){
+        } catch (e) {
           document.body.removeChild(tmp);
           reject(e);
         }
@@ -163,22 +225,13 @@
       const name = document.getElementById('regName').value.trim();
       const email = document.getElementById('regEmail').value.trim();
       const pass = document.getElementById('regPass').value;
-      const level = document.getElementById('regLevel').value;
-
-      if(!name || !email || !pass){ 
-        messageEl.textContent='Fill all fields'; 
-        messageEl.className='error'; 
-        return; 
-      }
-      if(!level) {
-        messageEl.textContent = 'Please select Clinical Level';
+      if (!name || !email || !pass) {
+        messageEl.textContent = 'Fill all fields';
         messageEl.className = 'error';
         return;
       }
-      
-      messageEl.textContent = 'Creating account...'; 
+      messageEl.textContent = 'Creating account...';
       messageEl.className = 'muted';
-
       try {
         const uc = await auth.createUserWithEmailAndPassword(email, pass);
         const uid = uc.user.uid;
@@ -189,20 +242,15 @@
 
         // Save profile (requires auth; user is signed-in)
         await db.ref('users/' + uid + '/profile').set({
-          name, 
-          email, 
-          uid, 
-          qrBase64, 
-          clinicalLevel: level, 
-          createdAt: new Date().toISOString()
+          name, email, uid, qrBase64, createdAt: new Date().toISOString()
         });
 
         messageEl.textContent = 'Account created and signed in.';
-        messageEl.className='success';
+        messageEl.className = 'success';
         // UI will update via onAuthStateChanged
-      } catch(err) {
+      } catch (err) {
         messageEl.textContent = err.message;
-        messageEl.className='error';
+        messageEl.className = 'error';
       }
     };
 
@@ -210,13 +258,17 @@
     loginBtn.onclick = async () => {
       const email = document.getElementById('loginEmail').value.trim();
       const pass = document.getElementById('loginPass').value;
-      if(!email||!pass){ messageEl.textContent='Enter credentials'; messageEl.className='error'; return; }
-      try{
+      if (!email || !pass) {
+        messageEl.textContent = 'Enter credentials';
+        messageEl.className = 'error';
+        return;
+      }
+      try {
         await auth.signInWithEmailAndPassword(email, pass);
         messageEl.textContent = '';
-      }catch(err){
+      } catch (err) {
         messageEl.textContent = err.message;
-        messageEl.className='error';
+        messageEl.className = 'error';
       }
     };
 
@@ -225,9 +277,9 @@
 
     // Display user panel when signed in and load user's DTR records live
     auth.onAuthStateChanged(async user => {
-      if(user){
-        document.getElementById('authArea').style.display='none';
-        document.getElementById('userPanel').style.display='block';
+      if (user) {
+        document.getElementById('authArea').style.display = 'none';
+        document.getElementById('userPanel').style.display = 'block';
 
         // display profile if exists
         const profSnap = await db.ref('users/' + user.uid + '/profile').get();
@@ -236,13 +288,10 @@
         document.getElementById('nameDisplay').textContent = profile.name || profile.email;
         document.getElementById('emailDisplay').textContent = profile.email || '';
 
-        // Display clinical level if set
-        document.getElementById('levelDisplay').textContent = profile.clinicalLevel ? `Clinical Level: ${profile.clinicalLevel}` : '';
-
         // show QR (use stored qrBase64 if present, otherwise generate on the fly)
         const qrEl = document.getElementById('qr');
         qrEl.innerHTML = '';
-        if(profile.qrBase64){
+        if (profile.qrBase64) {
           const img = document.createElement('img');
           img.src = profile.qrBase64;
           img.style.maxWidth = '100%';
@@ -258,31 +307,32 @@
         recordsRef.on('value', snap => {
           const body = document.getElementById('recordsBody');
           body.innerHTML = '';
-          if(!snap.exists()){
+          if (!snap.exists()) {
             body.innerHTML = '<tr><td colspan="2" class="muted">No records yet</td></tr>';
             return;
           }
           const data = snap.val();
           // sort keys (dates) descending
           const keys = Object.keys(data).sort().reverse();
-          for(const k of keys){
+          for (const k of keys) {
             const r = data[k];
             body.innerHTML += `<tr><td>${k}</td><td>${r.timeIn}</td></tr>`;
           }
         });
 
       } else {
-        document.getElementById('authArea').style.display='block';
-        document.getElementById('userPanel').style.display='none';
+        document.getElementById('authArea').style.display = 'block';
+        document.getElementById('userPanel').style.display = 'none';
         messageEl.textContent = '';
       }
     });
 
     // helper: small keyboard UX
     document.addEventListener('keydown', e => {
-      if(e.key === 'Enter'){
+      if (e.key === 'Enter') {
         const regShown = document.getElementById('registerForm').style.display !== 'none';
-        if(regShown) registerBtn.click(); else loginBtn.click();
+        if (regShown) registerBtn.click();
+        else loginBtn.click();
       }
     });
   </script>
