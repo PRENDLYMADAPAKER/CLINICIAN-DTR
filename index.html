@@ -1,107 +1,119 @@
+<!-- user.html -->
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>User Panel - DTR</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script type="module">
-    // Firebase SDK imports
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
-    import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-auth.js";
-    import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-database.js";
+    // Import Firebase SDKs
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword } 
+      from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import { getDatabase, ref, set } 
+      from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
-    // Firebase Config
+    // Firebase config
     const firebaseConfig = {
       apiKey: "AIzaSyBYYZrsZECXM2UpW4-38sGQLaPqAqkjSWI",
       authDomain: "dtr-project-66048.firebaseapp.com",
       databaseURL: "https://dtr-project-66048-default-rtdb.asia-southeast1.firebasedatabase.app",
       projectId: "dtr-project-66048",
-      storageBucket: "dtr-project-66048.firebasestorage.app",
+      storageBucket: "dtr-project-66048.appspot.com",
       messagingSenderId: "271445506225",
       appId: "1:271445506225:web:fcb04d0454e1302de14a90",
       measurementId: "G-R22CLKSPCP"
     };
 
-    // Initialize Firebase
+    // Init Firebase
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getDatabase(app);
 
-    // Handle registration
-    document.addEventListener("DOMContentLoaded", () => {
-      const regForm = document.getElementById("registerForm");
-      const loginForm = document.getElementById("loginForm");
-      const messageBox = document.getElementById("message");
-
-      regForm.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const name = document.getElementById("regName").value.trim();
-        const email = document.getElementById("regEmail").value.trim();
-        const password = document.getElementById("regPassword").value;
-
-        try {
-          const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-          const uid = userCredential.user.uid;
-          
-          // Generate QR link
-          const qrLink = `${window.location.origin}/timein.html?uid=${uid}`;
-          
-          // Save to DB
-          await set(ref(db, "users/" + uid), {
-            name: name,
-            email: email,
-            qrLink: qrLink
-          });
-
-          messageBox.style.color = "green";
-          messageBox.textContent = "Account created successfully! Redirecting...";
-          setTimeout(() => {
-            window.location.href = "user-panel.html";
-          }, 1500);
-        } catch (error) {
-          messageBox.style.color = "red";
-          messageBox.textContent = error.message;
-        }
+    // Generate QR as Base64
+    function generateQRCodeBase64(text) {
+      return new Promise((resolve) => {
+        const tempDiv = document.createElement("div");
+        const qr = new QRCode(tempDiv, {
+          text: text,
+          width: 150,
+          height: 150
+        });
+        setTimeout(() => {
+          const img = tempDiv.querySelector("img");
+          resolve(img.src); // base64 string
+        }, 500);
       });
+    }
 
-      // Handle login
-      loginForm.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const email = document.getElementById("logEmail").value.trim();
-        const password = document.getElementById("logPassword").value;
-        try {
-          await signInWithEmailAndPassword(auth, email, password);
-          messageBox.style.color = "green";
-          messageBox.textContent = "Login successful! Redirecting...";
-          setTimeout(() => {
-            window.location.href = "user-panel.html";
-          }, 1000);
-        } catch (error) {
-          messageBox.style.color = "red";
-          messageBox.textContent = error.message;
-        }
-      });
-    });
+    // Register
+    window.registerUser = async function() {
+      const email = document.getElementById('regEmail').value.trim();
+      const password = document.getElementById('regPass').value.trim();
+      const fullName = document.getElementById('regName').value.trim();
+
+      if (!email || !password || !fullName) {
+        alert("Please fill all fields.");
+        return;
+      }
+
+      try {
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const uid = userCredential.user.uid;
+
+        // Generate QR with UID
+        const qrBase64 = await generateQRCodeBase64(uid);
+
+        // Save profile to DB
+        await set(ref(db, 'users/' + uid), {
+          name: fullName,
+          email: email,
+          qrCode: qrBase64,
+          createdAt: new Date().toISOString()
+        });
+
+        document.getElementById("qrPreview").src = qrBase64;
+        document.getElementById("qrContainer").style.display = "block";
+
+        alert("Account created! QR code generated.");
+      } catch (error) {
+        alert("Error: " + error.message);
+      }
+    };
+
+    // Login
+    window.loginUser = function() {
+      const email = document.getElementById('logEmail').value.trim();
+      const password = document.getElementById('logPass').value.trim();
+
+      signInWithEmailAndPassword(auth, email, password)
+        .then(userCredential => {
+          alert("Logged in as " + userCredential.user.email);
+        })
+        .catch(error => {
+          alert("Login error: " + error.message);
+        });
+    };
   </script>
 </head>
-<body style="font-family:sans-serif; text-align:center; padding:20px;">
-  <h1>DTR - User Portal</h1>
-  <p id="message"></p>
+<body style="font-family: Arial; padding: 20px;">
 
-  <h2>Create Account</h2>
-  <form id="registerForm">
-    <input type="text" id="regName" placeholder="Full Name" required><br><br>
-    <input type="email" id="regEmail" placeholder="Email" required><br><br>
-    <input type="password" id="regPassword" placeholder="Password" required><br><br>
-    <button type="submit">Register</button>
-  </form>
+  <h2>Register</h2>
+  <input type="text" id="regName" placeholder="Full Name"><br><br>
+  <input type="email" id="regEmail" placeholder="Email"><br><br>
+  <input type="password" id="regPass" placeholder="Password"><br><br>
+  <button onclick="registerUser()">Register</button>
+
+  <div id="qrContainer" style="display:none; margin-top:20px;">
+    <h3>Your QR Code:</h3>
+    <img id="qrPreview" alt="QR Code">
+  </div>
 
   <hr>
-
   <h2>Login</h2>
-  <form id="loginForm">
-    <input type="email" id="logEmail" placeholder="Email" required><br><br>
-    <input type="password" id="logPassword" placeholder="Password" required><br><br>
-    <button type="submit">Login</button>
-  </form>
+  <input type="email" id="logEmail" placeholder="Email"><br><br>
+  <input type="password" id="logPass" placeholder="Password"><br><br>
+  <button onclick="loginUser()">Login</button>
+
 </body>
 </html>
