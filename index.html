@@ -8,7 +8,7 @@
     body{font-family:Inter,system-ui,Arial,sans-serif;background:#071427;color:#cbd5e1;display:flex;justify-content:center;padding:28px}
     .card{background:rgba(255,255,255,0.03);padding:20px;border-radius:12px;max-width:460px;width:100%}
     h1{color:#e6eef8;margin:0 0 12px;font-size:20px}
-    input{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);margin:8px 0;background:transparent;color:inherit}
+    input, select{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);margin:8px 0;background:transparent;color:inherit;}
     button{padding:10px 12px;border-radius:8px;border:none;background:linear-gradient(90deg,#06b6d4,#60a5fa);color:#021124;cursor:pointer}
     .muted{color:#94a3b8;font-size:13px}
     #qr{width:180px;height:180px;background:white;border-radius:8px;padding:8px;margin:12px auto;display:flex;align-items:center;justify-content:center}
@@ -30,6 +30,14 @@
         <input id="regName" placeholder="Full name" />
         <input id="regEmail" type="email" placeholder="Email" />
         <input id="regPass" type="password" placeholder="Password (6+ chars)" />
+        <!-- Added Clinical Level dropdown -->
+        <select id="regLevel" aria-label="Select Clinical Level">
+          <option value="" disabled selected>Select Clinical Level</option>
+          <option value="42">Clinical Level 42</option>
+          <option value="41">Clinical Level 41</option>
+          <option value="32">Clinical Level 32</option>
+          <option value="31">Clinical Level 31</option>
+        </select>
         <div class="row" style="margin-top:8px">
           <button id="registerBtn">Create Account</button>
           <button id="switchToLogin" class="linkbtn">Login</button>
@@ -55,6 +63,8 @@
           <div class="muted">Signed in as</div>
           <div id="nameDisplay" style="color:#e6eef8;font-weight:600"></div>
           <div id="emailDisplay" class="muted"></div>
+          <!-- Added clinical level display -->
+          <div id="levelDisplay" class="muted"></div>
         </div>
         <div>
           <button id="logoutBtn" style="background:#ff6b6b">Logout</button>
@@ -111,8 +121,16 @@
     const switchToRegister = document.getElementById('switchToRegister');
     const messageEl = document.getElementById('message');
 
-    switchToLogin.onclick = () => { document.getElementById('registerForm').style.display='none'; document.getElementById('loginForm').style.display='block'; messageEl.textContent=''; }
-    switchToRegister.onclick = () => { document.getElementById('loginForm').style.display='none'; document.getElementById('registerForm').style.display='block'; messageEl.textContent=''; }
+    switchToLogin.onclick = () => { 
+      document.getElementById('registerForm').style.display='none'; 
+      document.getElementById('loginForm').style.display='block'; 
+      messageEl.textContent=''; 
+    }
+    switchToRegister.onclick = () => { 
+      document.getElementById('loginForm').style.display='none'; 
+      document.getElementById('registerForm').style.display='block'; 
+      messageEl.textContent=''; 
+    }
 
     // helper to generate QR base64 via temporary DOM
     function generateQRCodeBase64(text){
@@ -127,7 +145,6 @@
             if(img && img.src) {
               resolve(img.src);
             } else {
-              // sometimes QRCode builds a canvas instead of img
               const canvas = tmp.querySelector('canvas');
               if(canvas) resolve(canvas.toDataURL());
               else reject(new Error('QR generation failed'));
@@ -146,9 +163,23 @@
       const name = document.getElementById('regName').value.trim();
       const email = document.getElementById('regEmail').value.trim();
       const pass = document.getElementById('regPass').value;
-      if(!name||!email||!pass){ messageEl.textContent='Fill all fields'; messageEl.className='error'; return; }
-      messageEl.textContent = 'Creating account...'; messageEl.className='muted';
-      try{
+      const level = document.getElementById('regLevel').value;
+
+      if(!name || !email || !pass){ 
+        messageEl.textContent='Fill all fields'; 
+        messageEl.className='error'; 
+        return; 
+      }
+      if(!level) {
+        messageEl.textContent = 'Please select Clinical Level';
+        messageEl.className = 'error';
+        return;
+      }
+      
+      messageEl.textContent = 'Creating account...'; 
+      messageEl.className = 'muted';
+
+      try {
         const uc = await auth.createUserWithEmailAndPassword(email, pass);
         const uid = uc.user.uid;
 
@@ -158,13 +189,18 @@
 
         // Save profile (requires auth; user is signed-in)
         await db.ref('users/' + uid + '/profile').set({
-          name, email, uid, qrBase64, createdAt: new Date().toISOString()
+          name, 
+          email, 
+          uid, 
+          qrBase64, 
+          clinicalLevel: level, 
+          createdAt: new Date().toISOString()
         });
 
         messageEl.textContent = 'Account created and signed in.';
         messageEl.className='success';
         // UI will update via onAuthStateChanged
-      }catch(err){
+      } catch(err) {
         messageEl.textContent = err.message;
         messageEl.className='error';
       }
@@ -179,7 +215,8 @@
         await auth.signInWithEmailAndPassword(email, pass);
         messageEl.textContent = '';
       }catch(err){
-        messageEl.textContent = err.message; messageEl.className='error';
+        messageEl.textContent = err.message;
+        messageEl.className='error';
       }
     };
 
@@ -198,6 +235,9 @@
 
         document.getElementById('nameDisplay').textContent = profile.name || profile.email;
         document.getElementById('emailDisplay').textContent = profile.email || '';
+
+        // Display clinical level if set
+        document.getElementById('levelDisplay').textContent = profile.clinicalLevel ? `Clinical Level: ${profile.clinicalLevel}` : '';
 
         // show QR (use stored qrBase64 if present, otherwise generate on the fly)
         const qrEl = document.getElementById('qr');
