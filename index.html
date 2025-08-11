@@ -1,188 +1,107 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>User DTR Panel</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #111;
-      color: white;
-      text-align: center;
-      padding: 20px;
-    }
-    .form-box {
-      background: rgba(255, 255, 255, 0.1);
-      padding: 20px;
-      border-radius: 10px;
-      max-width: 400px;
-      margin: auto;
-    }
-    input {
-      padding: 10px;
-      margin: 5px;
-      width: 90%;
-    }
-    button {
-      padding: 10px;
-      background: #28a745;
-      border: none;
-      color: white;
-      cursor: pointer;
-      margin-top: 10px;
-    }
-    button:hover {
-      background: #218838;
-    }
-    #qrCode {
-      margin-top: 20px;
-    }
-  </style>
+  <meta charset="UTF-8">
+  <title>User Panel - DTR</title>
+  <script type="module">
+    // Firebase SDK imports
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
+    import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-auth.js";
+    import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-database.js";
+
+    // Firebase Config
+    const firebaseConfig = {
+      apiKey: "AIzaSyBYYZrsZECXM2UpW4-38sGQLaPqAqkjSWI",
+      authDomain: "dtr-project-66048.firebaseapp.com",
+      databaseURL: "https://dtr-project-66048-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "dtr-project-66048",
+      storageBucket: "dtr-project-66048.firebasestorage.app",
+      messagingSenderId: "271445506225",
+      appId: "1:271445506225:web:fcb04d0454e1302de14a90",
+      measurementId: "G-R22CLKSPCP"
+    };
+
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getDatabase(app);
+
+    // Handle registration
+    document.addEventListener("DOMContentLoaded", () => {
+      const regForm = document.getElementById("registerForm");
+      const loginForm = document.getElementById("loginForm");
+      const messageBox = document.getElementById("message");
+
+      regForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const name = document.getElementById("regName").value.trim();
+        const email = document.getElementById("regEmail").value.trim();
+        const password = document.getElementById("regPassword").value;
+
+        try {
+          const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+          const uid = userCredential.user.uid;
+          
+          // Generate QR link
+          const qrLink = `${window.location.origin}/timein.html?uid=${uid}`;
+          
+          // Save to DB
+          await set(ref(db, "users/" + uid), {
+            name: name,
+            email: email,
+            qrLink: qrLink
+          });
+
+          messageBox.style.color = "green";
+          messageBox.textContent = "Account created successfully! Redirecting...";
+          setTimeout(() => {
+            window.location.href = "user-panel.html";
+          }, 1500);
+        } catch (error) {
+          messageBox.style.color = "red";
+          messageBox.textContent = error.message;
+        }
+      });
+
+      // Handle login
+      loginForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const email = document.getElementById("logEmail").value.trim();
+        const password = document.getElementById("logPassword").value;
+        try {
+          await signInWithEmailAndPassword(auth, email, password);
+          messageBox.style.color = "green";
+          messageBox.textContent = "Login successful! Redirecting...";
+          setTimeout(() => {
+            window.location.href = "user-panel.html";
+          }, 1000);
+        } catch (error) {
+          messageBox.style.color = "red";
+          messageBox.textContent = error.message;
+        }
+      });
+    });
+  </script>
 </head>
-<body>
+<body style="font-family:sans-serif; text-align:center; padding:20px;">
+  <h1>DTR - User Portal</h1>
+  <p id="message"></p>
 
-<h2>User Daily Time Record</h2>
+  <h2>Create Account</h2>
+  <form id="registerForm">
+    <input type="text" id="regName" placeholder="Full Name" required><br><br>
+    <input type="email" id="regEmail" placeholder="Email" required><br><br>
+    <input type="password" id="regPassword" placeholder="Password" required><br><br>
+    <button type="submit">Register</button>
+  </form>
 
-<div class="form-box" id="authBox">
-  <h3>Login</h3>
-  <input type="email" id="loginEmail" placeholder="Email"><br>
-  <input type="password" id="loginPassword" placeholder="Password"><br>
-  <button onclick="login()">Login</button>
-  <p>Don't have an account? <a href="#" onclick="showRegister()">Create Account</a></p>
-</div>
+  <hr>
 
-<div class="form-box" id="registerBox" style="display:none;">
-  <h3>Create Account</h3>
-  <input type="text" id="regName" placeholder="Full Name"><br>
-  <input type="email" id="regEmail" placeholder="Email"><br>
-  <input type="password" id="regPassword" placeholder="Password"><br>
-  <button onclick="register()">Register</button>
-  <p>Already have an account? <a href="#" onclick="showLogin()">Login</a></p>
-</div>
-
-<div id="userPanel" style="display:none;">
-  <h3>Welcome, <span id="displayName"></span></h3>
-  <p>Your QR Code (for Time In):</p>
-  <canvas id="qrCode"></canvas>
-  <h4>Your DTR Records</h4>
-  <table border="1" style="margin:auto; color:white;">
-    <thead>
-      <tr><th>Date</th><th>Time In</th></tr>
-    </thead>
-    <tbody id="dtrTable"></tbody>
-  </table>
-  <br>
-  <button onclick="logout()">Logout</button>
-</div>
-
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
-
-<script>
-const firebaseConfig = {
-  apiKey: "AIzaSyBYYZrsZECXM2UpW4-38sGQLaPqAqkjSWI",
-  authDomain: "dtr-project-66048.firebaseapp.com",
-  databaseURL: "https://dtr-project-66048-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "dtr-project-66048",
-  storageBucket: "dtr-project-66048.appspot.com",
-  messagingSenderId: "271445506225",
-  appId: "1:271445506225:web:fcb04d0454e1302de14a90",
-  measurementId: "G-R22CLKSPCP"
-};
-
-firebase.initializeApp(firebaseConfig);
-const auth = firebase.auth();
-const db = firebase.database();
-
-function showRegister() {
-  document.getElementById("authBox").style.display = "none";
-  document.getElementById("registerBox").style.display = "block";
-}
-function showLogin() {
-  document.getElementById("authBox").style.display = "block";
-  document.getElementById("registerBox").style.display = "none";
-}
-
-function register() {
-  const name = document.getElementById("regName").value;
-  const email = document.getElementById("regEmail").value;
-  const password = document.getElementById("regPassword").value;
-
-  if (!name || !email || !password) {
-    alert("Please fill in all fields");
-    return;
-  }
-
-  auth.createUserWithEmailAndPassword(email, password)
-    .then(userCredential => {
-      const user = userCredential.user;
-      const uid = user.uid;
-
-      // Save profile
-      db.ref("users/" + uid + "/profile").set({
-        name: name,
-        email: email
-      });
-
-      // Generate QR code
-      const canvas = document.getElementById("qrCode");
-      QRCode.toCanvas(canvas, uid, { width: 200 }, function (error) {
-        if (error) console.error(error);
-        // Save QR as Data URL
-        const qrDataUrl = canvas.toDataURL();
-        db.ref("users/" + uid + "/profile/qrCode").set(qrDataUrl);
-      });
-
-      alert("Account created successfully! You are now logged in.");
-    })
-    .catch(error => alert(error.message));
-}
-
-function login() {
-  const email = document.getElementById("loginEmail").value;
-  const password = document.getElementById("loginPassword").value;
-  auth.signInWithEmailAndPassword(email, password)
-    .catch(error => alert(error.message));
-}
-
-auth.onAuthStateChanged(user => {
-  if (user) {
-    document.getElementById("authBox").style.display = "none";
-    document.getElementById("registerBox").style.display = "none";
-    document.getElementById("userPanel").style.display = "block";
-
-    const uid = user.uid;
-    db.ref("users/" + uid + "/profile/name").once("value").then(snap => {
-      document.getElementById("displayName").innerText = snap.val();
-    });
-
-    // Generate and show QR code
-    const canvas = document.getElementById("qrCode");
-    QRCode.toCanvas(canvas, uid, { width: 200 });
-
-    // Load DTR table
-    const tableBody = document.getElementById("dtrTable");
-    db.ref("users/" + uid + "/dtr").on("value", snap => {
-      tableBody.innerHTML = "";
-      snap.forEach(child => {
-        const date = child.key;
-        const timeIn = child.val().timeIn;
-        tableBody.innerHTML += `<tr><td>${date}</td><td>${timeIn}</td></tr>`;
-      });
-    });
-
-  } else {
-    document.getElementById("authBox").style.display = "block";
-    document.getElementById("registerBox").style.display = "none";
-    document.getElementById("userPanel").style.display = "none";
-  }
-});
-
-function logout() {
-  auth.signOut();
-}
-</script>
-
+  <h2>Login</h2>
+  <form id="loginForm">
+    <input type="email" id="logEmail" placeholder="Email" required><br><br>
+    <input type="password" id="logPassword" placeholder="Password" required><br><br>
+    <button type="submit">Login</button>
+  </form>
 </body>
 </html>
