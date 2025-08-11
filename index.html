@@ -1,290 +1,698 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <title>DTR — User Panel (Register / Login / QR)</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Admin DTR Panel — QR Scanner with Firebase</title>
   <style>
-    body{font-family:Inter,system-ui,Arial,sans-serif;background:#071427;color:#cbd5e1;display:flex;justify-content:center;padding:28px}
-    .card{background:rgba(255,255,255,0.03);padding:20px;border-radius:12px;max-width:460px;width:100%}
-    h1{color:#e6eef8;margin:0 0 12px;font-size:20px}
-    input, select{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);margin:8px 0;background:transparent;color:inherit;}
-    button{padding:10px 12px;border-radius:8px;border:none;background:linear-gradient(90deg,#06b6d4,#60a5fa);color:#021124;cursor:pointer}
-    .muted{color:#94a3b8;font-size:13px}
-    #qr{width:180px;height:180px;background:white;border-radius:8px;padding:8px;margin:12px auto;display:flex;align-items:center;justify-content:center}
-    table{width:100%;border-collapse:collapse;margin-top:12px;color:#cbd5e1}
-    th,td{padding:8px;text-align:left;border-bottom:1px solid rgba(255,255,255,0.03);font-size:13px}
-    .row{display:flex;gap:8px}
-    .linkbtn{background:transparent;border:1px solid rgba(255,255,255,0.04);color:var(--muted)}
-    .error{color:#ffb4b4}
-    .success{color:#b7f5d0}
+    /* Reset & base */
+    body {
+      font-family: Arial, sans-serif;
+      background: #121212;
+      color: #eee;
+      margin: 0; padding: 0;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      align-items: center;
+    }
+    header {
+      width: 100%;
+      background: #1e1e1e;
+      padding: 15px 20px;
+      font-size: 22px;
+      font-weight: bold;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-sizing: border-box;
+      color: #4ade80;
+      user-select: none;
+    }
+    #clock {
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 16px;
+      color: #94a3b8;
+    }
+
+    main {
+      flex-grow: 1;
+      width: 95%;
+      max-width: 900px;
+      margin: 20px auto 40px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      box-sizing: border-box;
+    }
+
+    /* Left panel: Scanner & profile */
+    #scanner-panel {
+      background: #1f2937;
+      border-radius: 12px;
+      padding: 20px;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-width: 280px;
+    }
+    #video {
+      width: 100%;
+      max-width: 320px;
+      border-radius: 8px;
+      box-shadow: 0 0 12px #22c55e;
+      background: #000;
+    }
+
+    #result {
+      margin-top: 15px;
+      min-height: 30px;
+      font-weight: 600;
+      font-size: 18px;
+      text-align: center;
+      user-select: none;
+    }
+
+    #profile-info {
+      margin-top: 15px;
+      padding: 12px;
+      background: #334155;
+      border-radius: 8px;
+      width: 100%;
+      color: #cbd5e1;
+      display: none;
+    }
+    #profile-info div {
+      margin: 4px 0;
+    }
+
+    .status-success {
+      color: #4ade80;
+    }
+    .status-error {
+      color: #f87171;
+    }
+    .status-warning {
+      color: #fbbf24;
+    }
+
+    /* Buttons */
+    #controls {
+      margin-top: 20px;
+      display: flex;
+      gap: 15px;
+      width: 100%;
+      justify-content: center;
+    }
+    button {
+      cursor: pointer;
+      background-color: #22c55e;
+      border: none;
+      padding: 12px 22px;
+      font-weight: bold;
+      font-size: 16px;
+      color: #121212;
+      border-radius: 8px;
+      box-shadow: 0 0 12px #22c55eaa;
+      transition: background-color 0.3s ease;
+    }
+    button:hover {
+      background-color: #16a34a;
+      box-shadow: 0 0 16px #16a34acc;
+    }
+    button:disabled {
+      background-color: #6ee7b7;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    /* Right panel: Logs & history */
+    #logs-panel {
+      background: #1f2937;
+      border-radius: 12px;
+      padding: 20px;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      max-height: 80vh;
+      overflow: auto;
+    }
+
+    /* Logs search + buttons container */
+    #logs-controls {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 12px;
+      align-items: center;
+    }
+    #logs-search {
+      flex-grow: 1;
+      padding: 8px 12px;
+      border-radius: 6px;
+      border: none;
+      font-size: 16px;
+      box-sizing: border-box;
+    }
+
+    #print-btn, #export-btn {
+      background-color: #3b82f6;
+      color: white;
+      padding: 8px 14px;
+      font-weight: 600;
+      border-radius: 6px;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 0 8px #3b82f6aa;
+      transition: background-color 0.3s ease;
+    }
+    #print-btn:hover, #export-btn:hover {
+      background-color: #2563eb;
+      box-shadow: 0 0 10px #2563ebcc;
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      font-size: 14px;
+      color: #cbd5e1;
+    }
+    th, td {
+      border: 1px solid #475569;
+      padding: 8px 12px;
+      text-align: left;
+      user-select: text;
+    }
+    th {
+      background: #334155;
+      cursor: pointer;
+      position: relative;
+    }
+    th .sort-arrow {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 14px;
+      color: #94a3b8;
+      user-select: none;
+    }
+    tr:nth-child(even) {
+      background: #1e293b;
+    }
+    tr:hover {
+      background: #475569;
+    }
+    .no-records {
+      text-align: center;
+      font-style: italic;
+      padding: 20px 0;
+      color: #94a3b8;
+    }
+
+    /* Scan History */
+    #history-panel {
+      margin-top: 25px;
+      padding-top: 12px;
+      border-top: 1px solid #475569;
+      flex-grow: 1;
+      overflow-y: auto;
+      color: #cbd5e1;
+      font-size: 13px;
+    }
+    #history-panel h3 {
+      margin-bottom: 8px;
+      font-weight: 700;
+      color: #a5b4fc;
+      user-select: none;
+    }
+    #history-filter {
+      width: 100%;
+      padding: 6px 10px;
+      border-radius: 6px;
+      border: none;
+      margin-bottom: 10px;
+      font-size: 14px;
+      box-sizing: border-box;
+      color: #1f2937;
+    }
+    #history-list {
+      max-height: 220px;
+      overflow-y: auto;
+      background: #334155;
+      border-radius: 6px;
+      padding: 8px;
+    }
+    #history-list div {
+      margin-bottom: 6px;
+      user-select: none;
+    }
+
+    /* Responsive */
+    @media (max-width: 800px) {
+      main {
+        grid-template-columns: 1fr;
+      }
+      #logs-panel {
+        max-height: none;
+        overflow: visible;
+      }
+    }
   </style>
 </head>
 <body>
-  <div class="card">
-    <h1>DTR — User Panel</h1>
+  <header>
+    📋 Admin DTR Panel
+    <div id="clock">--:--:--</div>
+  </header>
 
-    <div id="authArea">
-      <div id="registerForm">
-        <div class="muted">Create account</div>
-        <input id="regName" placeholder="Full name" />
-        <input id="regEmail" type="email" placeholder="Email" />
-        <input id="regPass" type="password" placeholder="Password (6+ chars)" />
-        <!-- Added Clinical Level dropdown -->
-        <select id="regLevel" aria-label="Select Clinical Level">
-          <option value="" disabled selected>Select Clinical Level</option>
-          <option value="42">Clinical Level 42</option>
-          <option value="41">Clinical Level 41</option>
-          <option value="32">Clinical Level 32</option>
-          <option value="31">Clinical Level 31</option>
-        </select>
-        <div class="row" style="margin-top:8px">
-          <button id="registerBtn">Create Account</button>
-          <button id="switchToLogin" class="linkbtn">Login</button>
-        </div>
+  <main>
+    <section id="scanner-panel">
+      <video id="video" muted autoplay playsinline></video>
+      <div id="result">Initializing camera...</div>
+
+      <div id="profile-info" aria-live="polite">
+        <div><strong>Name:</strong> <span id="profile-name"></span></div>
+        <div><strong>Email:</strong> <span id="profile-email"></span></div>
       </div>
 
-      <div id="loginForm" style="display:none;margin-top:12px">
-        <div class="muted">Login</div>
-        <input id="loginEmail" type="email" placeholder="Email" />
-        <input id="loginPass" type="password" placeholder="Password" />
-        <div class="row" style="margin-top:8px">
-          <button id="loginBtn">Login</button>
-          <button id="switchToRegister" class="linkbtn">Create</button>
-        </div>
+      <div id="controls">
+        <button id="start-btn">Start Scanner</button>
+        <button id="stop-btn" disabled>Stop Scanner</button>
+      </div>
+    </section>
+
+    <section id="logs-panel">
+      <div id="logs-controls">
+        <input id="logs-search" placeholder="Search logs..." aria-label="Search logs" />
+        <button id="print-btn" title="Print logs">🖨️ Print</button>
+        <button id="export-btn" title="Export logs as CSV">💾 Export</button>
       </div>
 
-      <p id="message" class="muted" style="margin-top:12px"></p>
-    </div>
+      <table id="logs-table" aria-live="polite" role="grid">
+        <thead>
+          <tr>
+            <th data-key="uid">User ID <span class="sort-arrow"></span></th>
+            <th data-key="name">Name <span class="sort-arrow"></span></th>
+            <th data-key="email">Email <span class="sort-arrow"></span></th>
+            <th data-key="date">Date <span class="sort-arrow"></span></th>
+            <th data-key="time">Time In <span class="sort-arrow"></span></th>
+          </tr>
+        </thead>
+        <tbody id="logs-body">
+          <tr><td colspan="5" class="no-records">Loading logs...</td></tr>
+        </tbody>
+      </table>
 
-    <div id="userPanel" style="display:none">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <div>
-          <div class="muted">Signed in as</div>
-          <div id="nameDisplay" style="color:#e6eef8;font-weight:600"></div>
-          <div id="emailDisplay" class="muted"></div>
-          <!-- Added clinical level display -->
-          <div id="levelDisplay" class="muted"></div>
-        </div>
-        <div>
-          <button id="logoutBtn" style="background:#ff6b6b">Logout</button>
+      <div id="history-panel" aria-live="polite" aria-label="Scan history panel">
+        <h3>Scan History</h3>
+        <input id="history-filter" placeholder="Filter scan history..." aria-label="Filter scan history" />
+        <div id="history-list">
+          <div>No scans yet.</div>
         </div>
       </div>
+    </section>
+  </main>
 
-      <hr style="border:none;height:1px;background:rgba(255,255,255,0.02);margin:12px 0" />
+  <!-- ZXing library - UMD -->
+  <script src="https://cdn.jsdelivr.net/npm/@zxing/library@0.19.1/umd/index.min.js"></script>
+  <script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getDatabase, ref, get, set, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
-      <div class="muted small">Your QR (show to admin to Time In)</div>
-      <div id="qr" aria-hidden="true"></div>
+  // Your Firebase config
+  const firebaseConfig = {
+    apiKey: "AIzaSyBYYZrsZECXM2UpW4-38sGQLaPqAqkjSWI",
+    authDomain: "dtr-project-66048.firebaseapp.com",
+    databaseURL: "https://dtr-project-66048-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "dtr-project-66048",
+    storageBucket: "dtr-project-66048.appspot.com",
+    messagingSenderId: "271445506225",
+    appId: "1:271445506225:web:fcb04d0454e1302de14a90",
+    measurementId: "G-R22CLKSPCP"
+  };
 
-      <div style="margin-top:12px">
-        <div class="muted small">Your Time-In history</div>
-        <table aria-live="polite">
-          <thead><tr><th>Date</th><th>Time In</th></tr></thead>
-          <tbody id="recordsBody"><tr><td colspan="2" class="muted">No records yet</td></tr></tbody>
-        </table>
-      </div>
+  // Initialize Firebase app and database
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
 
-      <p class="muted small" style="margin-top:10px">QR is the only way to Time In — admin scans it to record your attendance.</p>
-    </div>
-  </div>
+  // ZXing scanner instance
+  const codeReader = new ZXing.BrowserQRCodeReader();
+  const videoElement = document.getElementById('video');
 
-  <!-- libs (compat CDN) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-database-compat.js"></script>
+  // UI elements
+  const resultDiv = document.getElementById('result');
+  const profileInfo = document.getElementById('profile-info');
+  const profileName = document.getElementById('profile-name');
+  const profileEmail = document.getElementById('profile-email');
 
-  <script>
-    // ---------- YOUR FIREBASE CONFIG ----------
-    const firebaseConfig = {
-      apiKey: "AIzaSyBYYZrsZECXM2UpW4-38sGQLaPqAqkjSWI",
-      authDomain: "dtr-project-66048.firebaseapp.com",
-      databaseURL: "https://dtr-project-66048-default-rtdb.asia-southeast1.firebasedatabase.app",
-      projectId: "dtr-project-66048",
-      storageBucket: "dtr-project-66048.appspot.com",
-      messagingSenderId: "271445506225",
-      appId: "1:271445506225:web:fcb04d0454e1302de14a90",
-      measurementId: "G-R22CLKSPCP"
-    };
-    // -------------------------------------------
+  const startBtn = document.getElementById('start-btn');
+  const stopBtn = document.getElementById('stop-btn');
 
-    // init firebase (compat)
-    firebase.initializeApp(firebaseConfig);
-    const auth = firebase.auth();
-    const db = firebase.database();
+  const logsBody = document.getElementById('logs-body');
+  const logsSearch = document.getElementById('logs-search');
 
-    // ui refs
-    const registerBtn = document.getElementById('registerBtn');
-    const loginBtn = document.getElementById('loginBtn');
-    const logoutBtn = document.getElementById('logoutBtn');
-    const switchToLogin = document.getElementById('switchToLogin');
-    const switchToRegister = document.getElementById('switchToRegister');
-    const messageEl = document.getElementById('message');
+  const historyList = document.getElementById('history-list');
+  const historyFilterInput = document.getElementById('history-filter');
 
-    switchToLogin.onclick = () => { 
-      document.getElementById('registerForm').style.display='none'; 
-      document.getElementById('loginForm').style.display='block'; 
-      messageEl.textContent=''; 
-    }
-    switchToRegister.onclick = () => { 
-      document.getElementById('loginForm').style.display='none'; 
-      document.getElementById('registerForm').style.display='block'; 
-      messageEl.textContent=''; 
-    }
+  let scanning = false;
+  let scanCooldowns = {};
+  let scanHistory = [];
+  let logsData = [];
+  let currentSort = { key: 'time', ascending: false };
 
-    // helper to generate QR base64 via temporary DOM
-    function generateQRCodeBase64(text){
-      return new Promise((resolve,reject)=>{
-        const tmp = document.createElement('div');
-        tmp.style.position='absolute'; tmp.style.left='-9999px';
-        document.body.appendChild(tmp);
-        try{
-          const qr = new QRCode(tmp, { text: text, width: 300, height: 300 });
-          setTimeout(()=>{
-            const img = tmp.querySelector('img');
-            if(img && img.src) {
-              resolve(img.src);
-            } else {
-              const canvas = tmp.querySelector('canvas');
-              if(canvas) resolve(canvas.toDataURL());
-              else reject(new Error('QR generation failed'));
-            }
-            document.body.removeChild(tmp);
-          }, 300);
-        }catch(e){
-          document.body.removeChild(tmp);
-          reject(e);
-        }
-      });
-    }
+  // Helpers
+  function todayYMD() {
+    const d = new Date();
+    const pad = n => n < 10 ? '0' + n : n;
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  }
+  function timeHMS() {
+    const d = new Date();
+    const pad = n => n < 10 ? '0' + n : n;
+    return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  }
+  function escapeHtml(text) {
+    return text.replace(/[&<>"']/g, function(m) {
+      return ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+      })[m];
+    });
+  }
 
-    // Register (create account) — user will be signed in automatically
-    registerBtn.onclick = async () => {
-      const name = document.getElementById('regName').value.trim();
-      const email = document.getElementById('regEmail').value.trim();
-      const pass = document.getElementById('regPass').value;
-      const level = document.getElementById('regLevel').value;
+  // Real-time clock update
+  const clockElem = document.getElementById('clock');
+  function updateClock() {
+    const now = new Date();
+    const pad = n => n < 10 ? '0' + n : n;
+    clockElem.textContent = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+  }
+  setInterval(updateClock, 1000);
+  updateClock();
 
-      if(!name || !email || !pass){ 
-        messageEl.textContent='Fill all fields'; 
-        messageEl.className='error'; 
-        return; 
-      }
-      if(!level) {
-        messageEl.textContent = 'Please select Clinical Level';
-        messageEl.className = 'error';
+  // Status message
+  function setResult(message, status='info') {
+    const icons = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
+    resultDiv.textContent = `${icons[status] || ''} ${message}`;
+    resultDiv.className = '';
+    resultDiv.classList.add(`status-${status}`);
+  }
+
+  // Start/Stop Scanner
+  async function startScanner() {
+    if (scanning) return;
+    try {
+      const devices = await codeReader.listVideoInputDevices();
+      if (devices.length === 0) {
+        setResult('No camera devices found.', 'error');
         return;
       }
-      
-      messageEl.textContent = 'Creating account...'; 
-      messageEl.className = 'muted';
+      const backCamera = devices.find(d => d.label.toLowerCase().includes('back')) || devices[0];
+      scanning = true;
+      setResult('Point camera to a QR code.', 'info');
 
-      try {
-        const uc = await auth.createUserWithEmailAndPassword(email, pass);
-        const uid = uc.user.uid;
-
-        // QR payload (UID)
-        const qrPayload = uid;
-        const qrBase64 = await generateQRCodeBase64(qrPayload);
-
-        // Save profile (requires auth; user is signed-in)
-        await db.ref('users/' + uid + '/profile').set({
-          name, 
-          email, 
-          uid, 
-          qrBase64, 
-          clinicalLevel: level, 
-          createdAt: new Date().toISOString()
-        });
-
-        messageEl.textContent = 'Account created and signed in.';
-        messageEl.className='success';
-        // UI will update via onAuthStateChanged
-      } catch(err) {
-        messageEl.textContent = err.message;
-        messageEl.className='error';
-      }
-    };
-
-    // Login
-    loginBtn.onclick = async () => {
-      const email = document.getElementById('loginEmail').value.trim();
-      const pass = document.getElementById('loginPass').value;
-      if(!email||!pass){ messageEl.textContent='Enter credentials'; messageEl.className='error'; return; }
-      try{
-        await auth.signInWithEmailAndPassword(email, pass);
-        messageEl.textContent = '';
-      }catch(err){
-        messageEl.textContent = err.message;
-        messageEl.className='error';
-      }
-    };
-
-    // Logout
-    logoutBtn.onclick = () => auth.signOut();
-
-    // Display user panel when signed in and load user's DTR records live
-    auth.onAuthStateChanged(async user => {
-      if(user){
-        document.getElementById('authArea').style.display='none';
-        document.getElementById('userPanel').style.display='block';
-
-        // display profile if exists
-        const profSnap = await db.ref('users/' + user.uid + '/profile').get();
-        const profile = profSnap.exists() ? profSnap.val() : { name: user.email, email: user.email, uid: user.uid };
-
-        document.getElementById('nameDisplay').textContent = profile.name || profile.email;
-        document.getElementById('emailDisplay').textContent = profile.email || '';
-
-        // Display clinical level if set
-        document.getElementById('levelDisplay').textContent = profile.clinicalLevel ? `Clinical Level: ${profile.clinicalLevel}` : '';
-
-        // show QR (use stored qrBase64 if present, otherwise generate on the fly)
-        const qrEl = document.getElementById('qr');
-        qrEl.innerHTML = '';
-        if(profile.qrBase64){
-          const img = document.createElement('img');
-          img.src = profile.qrBase64;
-          img.style.maxWidth = '100%';
-          img.style.height = 'auto';
-          qrEl.appendChild(img);
-        } else {
-          new QRCode(qrEl, { text: user.uid, width: 168, height: 168 });
+      await codeReader.decodeFromVideoDevice(backCamera.deviceId, videoElement, (result, err) => {
+        if (result) handleScan(result.getText());
+        else if (err && !(err instanceof ZXing.NotFoundException)) {
+          console.error(err);
+          setResult('Camera error: ' + err.message, 'error');
         }
+      });
+      startBtn.disabled = true;
+      stopBtn.disabled = false;
+    } catch (e) {
+      setResult('Error starting scanner: ' + e.message, 'error');
+    }
+  }
 
-        // listen to user's dtr records (written by admin scanner)
-        const recordsRef = db.ref('users/' + user.uid + '/dtr');
-        recordsRef.off();
-        recordsRef.on('value', snap => {
-          const body = document.getElementById('recordsBody');
-          body.innerHTML = '';
-          if(!snap.exists()){
-            body.innerHTML = '<tr><td colspan="2" class="muted">No records yet</td></tr>';
-            return;
-          }
-          const data = snap.val();
-          // sort keys (dates) descending
-          const keys = Object.keys(data).sort().reverse();
-          for(const k of keys){
-            const r = data[k];
-            body.innerHTML += `<tr><td>${k}</td><td>${r.timeIn}</td></tr>`;
-          }
+  function stopScanner() {
+    if (!scanning) return;
+    codeReader.reset();
+    scanning = false;
+    setResult('Scanner stopped.', 'warning');
+    startBtn.disabled = false;
+    stopBtn.disabled = true;
+  }
+
+  // Handle scan text (UID)
+  async function handleScan(scannedText) {
+    // Cooldown: avoid multiple same scans in short time
+    if (scanCooldowns[scannedText]) {
+      setResult('Scan ignored: cooldown active.', 'warning');
+      return;
+    }
+    scanCooldowns[scannedText] = true;
+    setTimeout(() => { delete scanCooldowns[scannedText]; }, 5000);
+
+    setResult(`Scanned: ${scannedText}`, 'success');
+
+    // Lookup user in Firebase database
+    const userRef = ref(db, `users/${scannedText}`);
+    try {
+      const snapshot = await get(userRef);
+      if (snapshot.exists()) {
+        const userData = snapshot.val();
+        // Display profile info
+        profileName.textContent = userData.name || 'N/A';
+        profileEmail.textContent = userData.email || 'N/A';
+        profileInfo.style.display = 'block';
+
+        // Record time-in with date/time in 'timein' node
+        const now = new Date();
+        const dateStr = todayYMD();
+        const timeStr = timeHMS();
+
+        const timeInRef = ref(db, `timein/${scannedText}/${dateStr}`);
+        await set(timeInRef, {
+          uid: scannedText,
+          name: userData.name,
+          email: userData.email,
+          date: dateStr,
+          time: timeStr,
+          timestamp: now.getTime()
         });
+
+        setResult(`Time-in recorded for ${userData.name}`, 'success');
+
+        // Add to logsData & refresh logs UI
+        logsData.push({
+          uid: scannedText,
+          name: userData.name,
+          email: userData.email,
+          date: dateStr,
+          time: timeStr,
+          timestamp: now.getTime()
+        });
+        refreshLogsTable();
+
+        // Add to scan history UI
+        scanHistory.unshift({
+          text: scannedText,
+          time: now.toLocaleString()
+        });
+        refreshHistoryList();
 
       } else {
-        document.getElementById('authArea').style.display='block';
-        document.getElementById('userPanel').style.display='none';
-        messageEl.textContent = '';
+        setResult('User not found in database.', 'error');
+        profileInfo.style.display = 'none';
       }
+    } catch (err) {
+      console.error(err);
+      setResult('Firebase error: ' + err.message, 'error');
+    }
+  }
+
+  // Refresh logs table according to logsData, current sort, and filter
+  function refreshLogsTable() {
+    let filtered = logsData;
+    const searchTerm = logsSearch.value.trim().toLowerCase();
+    if (searchTerm) {
+      filtered = filtered.filter(log =>
+        log.uid.toLowerCase().includes(searchTerm) ||
+        log.name.toLowerCase().includes(searchTerm) ||
+        log.email.toLowerCase().includes(searchTerm) ||
+        log.date.toLowerCase().includes(searchTerm) ||
+        log.time.toLowerCase().includes(searchTerm)
+      );
+    }
+
+    // Sort by currentSort.key
+    filtered.sort((a, b) => {
+      if (a[currentSort.key] < b[currentSort.key]) return currentSort.ascending ? -1 : 1;
+      if (a[currentSort.key] > b[currentSort.key]) return currentSort.ascending ? 1 : -1;
+      return 0;
     });
 
-    // helper: small keyboard UX
-    document.addEventListener('keydown', e => {
-      if(e.key === 'Enter'){
-        const regShown = document.getElementById('registerForm').style.display !== 'none';
-        if(regShown) registerBtn.click(); else loginBtn.click();
+    // Build table rows
+    if (filtered.length === 0) {
+      logsBody.innerHTML = `<tr><td colspan="5" class="no-records">No records found.</td></tr>`;
+      return;
+    }
+    logsBody.innerHTML = filtered.map(log => `
+      <tr>
+        <td>${escapeHtml(log.uid)}</td>
+        <td>${escapeHtml(log.name)}</td>
+        <td>${escapeHtml(log.email)}</td>
+        <td>${escapeHtml(log.date)}</td>
+        <td>${escapeHtml(log.time)}</td>
+      </tr>
+    `).join('');
+  }
+
+  // Refresh scan history UI
+  function refreshHistoryList() {
+    const filterTerm = historyFilterInput.value.trim().toLowerCase();
+    let items = scanHistory;
+    if (filterTerm) {
+      items = items.filter(item => item.text.toLowerCase().includes(filterTerm));
+    }
+    if (items.length === 0) {
+      historyList.innerHTML = `<div>No scans match filter.</div>`;
+      return;
+    }
+    historyList.innerHTML = items.map(item => `<div>${escapeHtml(item.text)} — <small>${escapeHtml(item.time)}</small></div>`).join('');
+  }
+
+  // Listen to logs search input
+  logsSearch.addEventListener('input', () => {
+    refreshLogsTable();
+  });
+
+  // Listen to history filter input
+  historyFilterInput.addEventListener('input', () => {
+    refreshHistoryList();
+  });
+
+  // Sorting header clicks
+  document.querySelectorAll('#logs-table thead th').forEach(th => {
+    th.addEventListener('click', () => {
+      const key = th.getAttribute('data-key');
+      if (key) {
+        if (currentSort.key === key) {
+          currentSort.ascending = !currentSort.ascending;
+        } else {
+          currentSort.key = key;
+          currentSort.ascending = true;
+        }
+        refreshLogsTable();
+        updateSortArrows();
       }
     });
-  </script>
+  });
+
+  // Update sort arrow UI
+  function updateSortArrows() {
+    document.querySelectorAll('#logs-table thead th').forEach(th => {
+      const arrowSpan = th.querySelector('.sort-arrow');
+      const key = th.getAttribute('data-key');
+      if (key === currentSort.key) {
+        arrowSpan.textContent = currentSort.ascending ? '▲' : '▼';
+      } else {
+        arrowSpan.textContent = '';
+      }
+    });
+  }
+
+  // Print logs
+  document.getElementById('print-btn').addEventListener('click', () => {
+    const printWindow = window.open('', '', 'width=900,height=600');
+    const rowsHtml = logsBody.innerHTML || '<tr><td colspan="5">No records to print.</td></tr>';
+    printWindow.document.write(`
+      <html>
+      <head><title>Print Logs</title>
+      <style>
+        body { font-family: Arial, sans-serif; padding: 20px; color: #000; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #000; padding: 8px; text-align: left; }
+      </style>
+      </head>
+      <body>
+        <h2>Attendance Logs</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>User ID</th><th>Name</th><th>Email</th><th>Date</th><th>Time In</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml}
+          </tbody>
+        </table>
+      </body>
+      </html>`);
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+  });
+
+  // Export logs as CSV
+  document.getElementById('export-btn').addEventListener('click', () => {
+    let csv = "User ID,Name,Email,Date,Time In\n";
+    let filtered = logsData;
+    const searchTerm = logsSearch.value.trim().toLowerCase();
+    if (searchTerm) {
+      filtered = filtered.filter(log =>
+        log.uid.toLowerCase().includes(searchTerm) ||
+        log.name.toLowerCase().includes(searchTerm) ||
+        log.email.toLowerCase().includes(searchTerm) ||
+        log.date.toLowerCase().includes(searchTerm) ||
+        log.time.toLowerCase().includes(searchTerm)
+      );
+    }
+    filtered.forEach(log => {
+      csv += `"${log.uid}","${log.name}","${log.email}","${log.date}","${log.time}"\n`;
+    });
+
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `attendance_logs_${todayYMD()}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+
+  // Load all logs initially from Firebase 'timein' node
+  async function loadAllLogs() {
+    const timeinRef = ref(db, 'timein');
+    try {
+      const snapshot = await get(timeinRef);
+      logsData = [];
+      if (snapshot.exists()) {
+        const allData = snapshot.val();
+        for (const uid in allData) {
+          const dates = allData[uid];
+          for (const dateKey in dates) {
+            const record = dates[dateKey];
+            logsData.push(record);
+          }
+        }
+      }
+      refreshLogsTable();
+      updateSortArrows();
+    } catch (err) {
+      setResult('Error loading logs: ' + err.message, 'error');
+    }
+  }
+
+  // Button event listeners
+  startBtn.addEventListener('click', () => {
+    startScanner();
+  });
+  stopBtn.addEventListener('click', () => {
+    stopScanner();
+  });
+
+  // On load
+  window.onload = () => {
+    loadAllLogs();
+  };
+</script>
 </body>
 </html>
