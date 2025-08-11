@@ -1,9 +1,9 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <title>DTR — User Panel (Register / Login / QR)</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>DTR User Panel with Firebase Auth</title>
   <style>
     body {
       font-family: Inter, system-ui, Arial, sans-serif;
@@ -12,6 +12,9 @@
       display: flex;
       justify-content: center;
       padding: 28px;
+      min-height: 100vh;
+      align-items: center;
+      margin: 0;
     }
     .card {
       background: rgba(255, 255, 255, 0.03);
@@ -19,75 +22,110 @@
       border-radius: 12px;
       max-width: 460px;
       width: 100%;
+      box-sizing: border-box;
+      box-shadow: 0 0 12px #22c55e44;
+      text-align: center;
     }
     h1 {
       color: #e6eef8;
-      margin: 0 0 12px;
-      font-size: 20px;
+      margin: 0 0 16px;
+      font-size: 24px;
+    }
+    .muted {
+      color: #94a3b8;
+      font-size: 13px;
+      margin-bottom: 8px;
+      user-select: none;
+    }
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      max-width: 320px;
+      margin: 0 auto 12px auto;
+      width: 100%;
     }
     input {
       width: 100%;
-      padding: 10px;
+      max-width: 320px;
+      padding: 10px 12px;
+      margin: 6px 0;
       border-radius: 8px;
       border: 1px solid rgba(255, 255, 255, 0.04);
-      margin: 8px 0;
       background: transparent;
       color: inherit;
-      max-width: 320px;       /* Added max-width */
-      margin-left: auto;      /* Center horizontally */
-      margin-right: auto;     /* Center horizontally */
-      display: block;         /* Needed to center with margins */
+      font-size: 15px;
+      box-sizing: border-box;
+      user-select: text;
+      outline-offset: 2px;
+      outline-color: #22c55e55;
+      transition: outline-color 0.3s ease;
+    }
+    input:focus {
+      outline-color: #22c55e;
+      border-color: #22c55e;
+      background: rgba(34, 197, 94, 0.1);
     }
     button {
-      padding: 10px 12px;
+      padding: 10px 16px;
       border-radius: 8px;
       border: none;
       background: linear-gradient(90deg, #06b6d4, #60a5fa);
       color: #021124;
       cursor: pointer;
+      min-width: 120px;
+      font-weight: 600;
+      font-size: 16px;
+      user-select: none;
+      box-shadow: 0 0 12px #22c55eaa;
+      transition: background-color 0.3s ease;
+      margin: 8px 6px;
     }
-    .muted {
-      color: #94a3b8;
-      font-size: 13px;
-    }
-    #qr {
-      width: 180px;
-      height: 180px;
-      background: white;
-      border-radius: 8px;
-      padding: 8px;
-      margin: 12px auto;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 12px;
-      color: #cbd5e1;
-    }
-    th,
-    td {
-      padding: 8px;
-      text-align: left;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.03);
-      font-size: 13px;
-    }
-    .row {
-      display: flex;
-      gap: 8px;
+    button:hover {
+      background-color: #16a34a;
+      box-shadow: 0 0 14px #16a34acc;
+      color: #e6eef8;
     }
     .linkbtn {
       background: transparent;
-      border: 1px solid rgba(255, 255, 255, 0.04);
-      color: var(--muted);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: #94a3b8;
+      cursor: pointer;
+      font-size: 14px;
+      padding: 10px 14px;
+      border-radius: 8px;
+      user-select: none;
+      transition: border-color 0.3s ease;
+      min-width: 80px;
+      margin: 8px 6px;
     }
-    .error {
-      color: #ffb4b4;
+    .linkbtn:hover {
+      border-color: #22c55e;
+      color: #22c55e;
     }
-    .success {
-      color: #b7f5d0;
+    #message {
+      font-size: 14px;
+      margin-top: 14px;
+      min-height: 22px;
+      user-select: none;
+      color: #94a3b8;
+    }
+    #message.error {
+      color: #ff6b6b;
+    }
+    #message.success {
+      color: #6ee7b7;
+    }
+    #logoutBtn {
+      margin-top: 12px;
+      background: #f87171;
+      box-shadow: 0 0 12px #f8717177;
+      color: #121212;
+    }
+    #logoutBtn:hover {
+      background: #dc2626;
+      box-shadow: 0 0 14px #dc262677;
+      color: #fff;
     }
   </style>
 </head>
@@ -96,490 +134,189 @@
     <h1>DTR — User Panel</h1>
 
     <div id="authArea">
+
       <div id="registerForm">
         <div class="muted">Create account</div>
-        <input id="regName" placeholder="Full name" />
-        <input id="regEmail" type="email" placeholder="Email" />
-        <input id="regPass" type="password" placeholder="Password (6+ chars)" />
-        <div class="row" style="margin-top:8px">
+        <div class="form-group">
+          <input id="regName" placeholder="Full name" autocomplete="name" />
+          <input id="regEmail" type="email" placeholder="Email" autocomplete="email" />
+          <input id="regPass" type="password" placeholder="Password (6+ chars)" autocomplete="new-password" />
+        </div>
+        <div>
           <button id="registerBtn">Create Account</button>
-          <button id="switchToLogin" class="linkbtn">Login</button>
+          <button id="switchToLogin" class="linkbtn" type="button">Login</button>
         </div>
       </div>
 
-      <div id="loginForm" style="display:none;margin-top:12px">
+      <div id="loginForm" style="display:none;">
         <div class="muted">Login</div>
-        <input id="loginEmail" type="email" placeholder="Email" />
-        <input id="loginPass" type="password" placeholder="Password" />
-        <div class="row" style="margin-top:8px">
+        <div class="form-group">
+          <input id="loginEmail" type="email" placeholder="Email" autocomplete="username" />
+          <input id="loginPass" type="password" placeholder="Password" autocomplete="current-password" />
+        </div>
+        <div>
           <button id="loginBtn">Login</button>
-          <button id="switchToRegister" class="linkbtn">Create</button>
+          <button id="switchToRegister" class="linkbtn" type="button">Create</button>
         </div>
       </div>
 
-      <p id="message" class="muted" style="margin-top:12px"></p>
+      <p id="message"></p>
     </div>
 
-    <div id="userPanel" style="display:none">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <div>
-          <div class="muted">Signed in as</div>
-          <div id="nameDisplay" style="color:#e6eef8;font-weight:600"></div>
-          <div id="emailDisplay" class="muted"></div>
-        </div>
-        <div>
-          <button id="logoutBtn" style="background:#ff6b6b">Logout</button>
-        </div>
-      </div>
-
-      <hr style="border:none;height:1px;background:rgba(255,255,255,0.02);margin:12px 0" />
-
-      <div class="muted small">Your QR (show to admin to Time In)</div>
-      <div id="qr" aria-hidden="true"></div>
-
-      <div style="margin-top:12px">
-        <div class="muted small">Your Time-In history</div>
-        <table aria-live="polite">
-          <thead><tr><th>Date</th><th>Time In</th></tr></thead>
-          <tbody id="recordsBody"><tr><td colspan="2" class="muted">No records yet</td></tr></tbody>
-        </table>
-      </div>
-
-      <p class="muted small" style="margin-top:10px">QR is the only way to Time In — admin scans it to record your attendance.</p>
+    <div id="userInfo" style="display:none;">
+      <div>Welcome, <span id="userName"></span>!</div>
+      <button id="logoutBtn">Logout</button>
     </div>
   </div>
 
-  <!-- libs (compat CDN) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-database-compat.js"></script>
+  <!-- Firebase SDK -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import {
+      getAuth,
+      createUserWithEmailAndPassword,
+      signInWithEmailAndPassword,
+      signOut,
+      updateProfile,
+      onAuthStateChanged,
+    } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
-  <script>
-    // ---------- YOUR FIREBASE CONFIG ----------
+    // Your Firebase config here
     const firebaseConfig = {
-      apiKey: "AIzaSyBYYZrsZECXM2UpW4-38sGQLaPqAqkjSWI",
-      authDomain: "dtr-project-66048.firebaseapp.com",
-      databaseURL: "https://dtr-project-66048-default-rtdb.asia-southeast1.firebasedatabase.app",
-      projectId: "dtr-project-66048",
-      storageBucket: "dtr-project-66048.appspot.com",
-      messagingSenderId: "271445506225",
-      appId: "1:271445506225:web:fcb04d0454e1302de14a90",
-      measurementId: "G-R22CLKSPCP"
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_PROJECT.firebaseapp.com",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_PROJECT.appspot.com",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId: "YOUR_APP_ID"
     };
-    // -------------------------------------------
 
-    // init firebase (compat)
-    firebase.initializeApp(firebaseConfig);
-    const auth = firebase.auth();
-    const db = firebase.database();
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
 
-    // ui refs
+    const registerForm = document.getElementById('registerForm');
+    const loginForm = document.getElementById('loginForm');
+    const authArea = document.getElementById('authArea');
+    const userInfo = document.getElementById('userInfo');
+    const userNameSpan = document.getElementById('userName');
+    const message = document.getElementById('message');
+
+    const regName = document.getElementById('regName');
+    const regEmail = document.getElementById('regEmail');
+    const regPass = document.getElementById('regPass');
+
+    const loginEmail = document.getElementById('loginEmail');
+    const loginPass = document.getElementById('loginPass');
+
     const registerBtn = document.getElementById('registerBtn');
     const loginBtn = document.getElementById('loginBtn');
     const logoutBtn = document.getElementById('logoutBtn');
+
     const switchToLogin = document.getElementById('switchToLogin');
     const switchToRegister = document.getElementById('switchToRegister');
-    const messageEl = document.getElementById('message');
 
-    switchToLogin.onclick = () => {
-      document.getElementById('registerForm').style.display = 'none';
-      document.getElementById('loginForm').style.display = 'block';
-      messageEl.textContent = '';
-    };
-    switchToRegister.onclick = () => {
-      document.getElementById('loginForm').style.display = 'none';
-      document.getElementById('registerForm').style.display = 'block';
-      messageEl.textContent = '';
-    };
+    // Show login form
+    switchToLogin.addEventListener('click', () => {
+      clearMessage();
+      registerForm.style.display = 'none';
+      loginForm.style.display = 'block';
+    });
 
-    // helper to generate QR base64 via temporary DOM
-    function generateQRCodeBase64(text) {
-      return new Promise((resolve, reject) => {
-        const tmp = document.createElement('div');
-        tmp.style.position = 'absolute';
-        tmp.style.left = '-9999px';
-        document.body.appendChild(tmp);
-        try {
-          const qr = new QRCode(tmp, { text: text, width: 300, height: 300 });
-          setTimeout(() => {
-            const img = tmp.querySelector('img');
-            if (img && img.src) {
-              resolve(img.src);
-            } else {
-              // sometimes QRCode builds a canvas instead of img
-              const canvas = tmp.querySelector('canvas');
-              if (canvas) resolve(canvas.toDataURL());
-              else reject(new Error('QR generation failed'));
-            }
-            document.body.removeChild(tmp);
-          }, 300);
-        } catch (e) {
-          document.body.removeChild(tmp);
-          reject(e);
-        }
-      });
+    // Show register form
+    switchToRegister.addEventListener('click', () => {
+      clearMessage();
+      loginForm.style.display = 'none';
+      registerForm.style.display = 'block';
+    });
+
+    // Clear message helper
+    function clearMessage() {
+      message.textContent = '';
+      message.className = '';
     }
 
-    // Register (create account) — user will be signed in automatically
-    registerBtn.onclick = async () => {
-      const name = document.getElementById('regName').value.trim();
-      const email = document.getElementById('regEmail').value.trim();
-      const pass = document.getElementById('regPass').value;
-      if (!name || !email || !pass) {
-        messageEl.textContent = 'Fill all fields';
-        messageEl.className = 'error';
-        return;
-      }
-      messageEl.textContent = 'Creating account...';
-      messageEl.className = 'muted';
-      try {
-        const uc = await auth.createUserWithEmailAndPassword(email, pass);
-        const uid = uc.user.uid;
-
-        // QR payload (UID)
-        const qrPayload = uid;
-        const qrBase64 = await generateQRCodeBase64(qrPayload);
-
-        // Save profile (requires auth; user is signed-in)
-        await db.ref('users/' + uid + '/profile').set({
-          name,
-          email,
-          uid,
-          qrBase64,
-          createdAt: new Date().toISOString(),
-        });
-
-        messageEl.textContent = 'Account created and signed in.';
-        messageEl.className = 'success';
-        // UI will update via onAuthStateChanged
-      } catch (err) {
-        messageEl.textContent = err.message;
-        messageEl.className = 'error';
-      }
-    };
-
-    // Login
-    loginBtn.onclick = async () => {
-      const email = document.getElementById('loginEmail').value.trim();
-      const pass = document.getElementById('loginPass').value;
-      if (!email || !pass) {
-        messageEl.textContent = 'Enter credentials';
-        messageEl.className = 'error';
-        return;
-      }
-      try {
-        await auth.signInWithEmailAndPassword(email, pass);
-        messageEl.textContent = '';
-      } catch (err) {
-        messageEl.textContent = err.message;
-        messageEl.className = 'error';
-      }
-    };
-
-    // Logout
-    logoutBtn.onclick = () => auth.signOut();
-
-    // Display user panel when signed in and load user's DTR records live
-    auth.onAuthStateChanged(async (user) => {
-      if (user) {
-        document.getElementById('authArea').style.display = 'none';
-        document.getElementById('userPanel').style.display = 'block';
-
-        // display profile if exists
-        const profSnap = await db.ref('users/' + user.uid + '/profile').get();
-        const profile = profSnap.exists()
-          ? profSnap.val()
-          : { name: user.email, email: user.email, uid: user.uid };
-
-        document.getElementById('nameDisplay').textContent = profile.name || profile.email;
-        document.getElementById('emailDisplay').textContent = profile.email || '';
-
-        // show QR (use stored qrBase64 if present, otherwise generate on the fly)
-        const qrEl = document.getElementById('qr');
-        qrEl.innerHTML = '';
-        if (profile.qrBase64) {
-          const img = document.createElement('img');
-          img.src = profile.qrBase64;
-          img.style.maxWidth = '100%';
-          img.style.height = 'auto';
-          qrEl.appendChild(img);
-        } else {
-          new QRCode(qrEl, { text: user.uid, width: 168, height: 168 });
-        }
-
-        // listen to user's dtr records (written by admin scanner)
-        const recordsRef = db.ref('users/' + user.uid + '/dtr');
-        recordsRef.off();
-        recordsRef.on('value', (snap) => {
-          const body = document.getElementById('recordsBody');
-          body.innerHTML = '';
-          if (!snap.exists()) {
-            body.innerHTML = '<tr><td colspan="2" class="muted">No records yet</td></tr>';
-            return;
-          }
-          const data = snap.val();
-          // sort keys (dates) descending
-          const keys = Object.keys(data).sort().reverse();
-          for (const k of keys) {
-            const r = data[k];
-            body.innerHTML += `<tr><td>${k}</td><td>${r.timeIn}</td></tr>`;
-          }
-        });
-      } else {
-        document.getElementById('authArea').style.display = 'block';
-        document.getElementById('userPanel').style.display = 'none';
-        messageEl.textContent = '';
-      }
-    });
-
-    // helper: small keyboard UX
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        const regShown = document.getElementById('registerForm').style.display !== 'none';
-        if (regShown) registerBtn.click();
-        else loginBtn.click();
-      }
-    });
-  </script>
-</body>
-</html>        <div class="muted">Create account</div>
-        <input id="regName" placeholder="Full name" />
-        <input id="regEmail" type="email" placeholder="Email" />
-        <input id="regPass" type="password" placeholder="Password (6+ chars)" />
-        <div class="row" style="margin-top:8px">
-          <button id="registerBtn">Create Account</button>
-          <button id="switchToLogin" class="linkbtn">Login</button>
-        </div>
-      </div>
-
-      <div id="loginForm" style="display:none;margin-top:12px">
-        <div class="muted">Login</div>
-        <input id="loginEmail" type="email" placeholder="Email" />
-        <input id="loginPass" type="password" placeholder="Password" />
-        <div class="row" style="margin-top:8px">
-          <button id="loginBtn">Login</button>
-          <button id="switchToRegister" class="linkbtn">Create</button>
-        </div>
-      </div>
-
-      <p id="message" class="muted" style="margin-top:12px"></p>
-    </div>
-
-    <div id="userPanel" style="display:none">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <div>
-          <div class="muted">Signed in as</div>
-          <div id="nameDisplay" style="color:#e6eef8;font-weight:600"></div>
-          <div id="emailDisplay" class="muted"></div>
-        </div>
-        <div>
-          <button id="logoutBtn" style="background:#ff6b6b">Logout</button>
-        </div>
-      </div>
-
-      <hr style="border:none;height:1px;background:rgba(255,255,255,0.02);margin:12px 0" />
-
-      <div class="muted small">Your QR (show to admin to Time In)</div>
-      <div id="qr" aria-hidden="true"></div>
-
-      <div style="margin-top:12px">
-        <div class="muted small">Your Time-In history</div>
-        <table aria-live="polite">
-          <thead><tr><th>Date</th><th>Time In</th></tr></thead>
-          <tbody id="recordsBody"><tr><td colspan="2" class="muted">No records yet</td></tr></tbody>
-        </table>
-      </div>
-
-      <p class="muted small" style="margin-top:10px">QR is the only way to Time In — admin scans it to record your attendance.</p>
-    </div>
-  </div>
-
-  <!-- libs (compat CDN) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-database-compat.js"></script>
-
-  <script>
-    // ---------- YOUR FIREBASE CONFIG ----------
-    const firebaseConfig = {
-      apiKey: "AIzaSyBYYZrsZECXM2UpW4-38sGQLaPqAqkjSWI",
-      authDomain: "dtr-project-66048.firebaseapp.com",
-      databaseURL: "https://dtr-project-66048-default-rtdb.asia-southeast1.firebasedatabase.app",
-      projectId: "dtr-project-66048",
-      storageBucket: "dtr-project-66048.appspot.com",
-      messagingSenderId: "271445506225",
-      appId: "1:271445506225:web:fcb04d0454e1302de14a90",
-      measurementId: "G-R22CLKSPCP"
-    };
-    // -------------------------------------------
-
-    // init firebase (compat)
-    firebase.initializeApp(firebaseConfig);
-    const auth = firebase.auth();
-    const db = firebase.database();
-
-    // ui refs
-    const registerBtn = document.getElementById('registerBtn');
-    const loginBtn = document.getElementById('loginBtn');
-    const logoutBtn = document.getElementById('logoutBtn');
-    const switchToLogin = document.getElementById('switchToLogin');
-    const switchToRegister = document.getElementById('switchToRegister');
-    const messageEl = document.getElementById('message');
-
-    switchToLogin.onclick = () => {
-      document.getElementById('registerForm').style.display = 'none';
-      document.getElementById('loginForm').style.display = 'block';
-      messageEl.textContent = '';
-    };
-    switchToRegister.onclick = () => {
-      document.getElementById('loginForm').style.display = 'none';
-      document.getElementById('registerForm').style.display = 'block';
-      messageEl.textContent = '';
-    };
-
-    // helper to generate QR base64 via temporary DOM
-    function generateQRCodeBase64(text) {
-      return new Promise((resolve, reject) => {
-        const tmp = document.createElement('div');
-        tmp.style.position = 'absolute';
-        tmp.style.left = '-9999px';
-        document.body.appendChild(tmp);
-        try {
-          const qr = new QRCode(tmp, { text: text, width: 300, height: 300 });
-          setTimeout(() => {
-            const img = tmp.querySelector('img');
-            if (img && img.src) {
-              resolve(img.src);
-            } else {
-              // sometimes QRCode builds a canvas instead of img
-              const canvas = tmp.querySelector('canvas');
-              if (canvas) resolve(canvas.toDataURL());
-              else reject(new Error('QR generation failed'));
-            }
-            document.body.removeChild(tmp);
-          }, 300);
-        } catch (e) {
-          document.body.removeChild(tmp);
-          reject(e);
-        }
-      });
+    // Display error message
+    function showError(msg) {
+      message.textContent = msg;
+      message.className = 'error';
     }
 
-    // Register (create account) — user will be signed in automatically
-    registerBtn.onclick = async () => {
-      const name = document.getElementById('regName').value.trim();
-      const email = document.getElementById('regEmail').value.trim();
-      const pass = document.getElementById('regPass').value;
-      if (!name || !email || !pass) {
-        messageEl.textContent = 'Fill all fields';
-        messageEl.className = 'error';
-        return;
-      }
-      messageEl.textContent = 'Creating account...';
-      messageEl.className = 'muted';
-      try {
-        const uc = await auth.createUserWithEmailAndPassword(email, pass);
-        const uid = uc.user.uid;
+    // Display success message
+    function showSuccess(msg) {
+      message.textContent = msg;
+      message.className = 'success';
+    }
 
-        // QR payload (UID)
-        const qrPayload = uid;
-        const qrBase64 = await generateQRCodeBase64(qrPayload);
+    // Register new user
+    registerBtn.addEventListener('click', () => {
+      clearMessage();
 
-        // Save profile (requires auth; user is signed-in)
-        await db.ref('users/' + uid + '/profile').set({
-          name, email, uid, qrBase64, createdAt: new Date().toISOString()
+      const name = regName.value.trim();
+      const email = regEmail.value.trim();
+      const password = regPass.value;
+
+      if (!name) return showError('Please enter your full name.');
+      if (!email) return showError('Please enter your email.');
+      if (!password || password.length < 6) return showError('Password must be at least 6 characters.');
+
+      createUserWithEmailAndPassword(auth, email, password)
+        .then(userCredential => {
+          // Update displayName
+          updateProfile(userCredential.user, { displayName: name })
+            .then(() => {
+              showSuccess('Account created! You can now log in.');
+              regName.value = '';
+              regEmail.value = '';
+              regPass.value = '';
+              switchToLogin.click();
+            });
+        })
+        .catch(error => {
+          showError(error.message);
         });
-
-        messageEl.textContent = 'Account created and signed in.';
-        messageEl.className = 'success';
-        // UI will update via onAuthStateChanged
-      } catch (err) {
-        messageEl.textContent = err.message;
-        messageEl.className = 'error';
-      }
-    };
-
-    // Login
-    loginBtn.onclick = async () => {
-      const email = document.getElementById('loginEmail').value.trim();
-      const pass = document.getElementById('loginPass').value;
-      if (!email || !pass) {
-        messageEl.textContent = 'Enter credentials';
-        messageEl.className = 'error';
-        return;
-      }
-      try {
-        await auth.signInWithEmailAndPassword(email, pass);
-        messageEl.textContent = '';
-      } catch (err) {
-        messageEl.textContent = err.message;
-        messageEl.className = 'error';
-      }
-    };
-
-    // Logout
-    logoutBtn.onclick = () => auth.signOut();
-
-    // Display user panel when signed in and load user's DTR records live
-    auth.onAuthStateChanged(async user => {
-      if (user) {
-        document.getElementById('authArea').style.display = 'none';
-        document.getElementById('userPanel').style.display = 'block';
-
-        // display profile if exists
-        const profSnap = await db.ref('users/' + user.uid + '/profile').get();
-        const profile = profSnap.exists() ? profSnap.val() : { name: user.email, email: user.email, uid: user.uid };
-
-        document.getElementById('nameDisplay').textContent = profile.name || profile.email;
-        document.getElementById('emailDisplay').textContent = profile.email || '';
-
-        // show QR (use stored qrBase64 if present, otherwise generate on the fly)
-        const qrEl = document.getElementById('qr');
-        qrEl.innerHTML = '';
-        if (profile.qrBase64) {
-          const img = document.createElement('img');
-          img.src = profile.qrBase64;
-          img.style.maxWidth = '100%';
-          img.style.height = 'auto';
-          qrEl.appendChild(img);
-        } else {
-          new QRCode(qrEl, { text: user.uid, width: 168, height: 168 });
-        }
-
-        // listen to user's dtr records (written by admin scanner)
-        const recordsRef = db.ref('users/' + user.uid + '/dtr');
-        recordsRef.off();
-        recordsRef.on('value', snap => {
-          const body = document.getElementById('recordsBody');
-          body.innerHTML = '';
-          if (!snap.exists()) {
-            body.innerHTML = '<tr><td colspan="2" class="muted">No records yet</td></tr>';
-            return;
-          }
-          const data = snap.val();
-          // sort keys (dates) descending
-          const keys = Object.keys(data).sort().reverse();
-          for (const k of keys) {
-            const r = data[k];
-            body.innerHTML += `<tr><td>${k}</td><td>${r.timeIn}</td></tr>`;
-          }
-        });
-
-      } else {
-        document.getElementById('authArea').style.display = 'block';
-        document.getElementById('userPanel').style.display = 'none';
-        messageEl.textContent = '';
-      }
     });
 
-    // helper: small keyboard UX
-    document.addEventListener('keydown', e => {
-      if (e.key === 'Enter') {
-        const regShown = document.getElementById('registerForm').style.display !== 'none';
-        if (regShown) registerBtn.click();
-        else loginBtn.click();
+    // Login existing user
+    loginBtn.addEventListener('click', () => {
+      clearMessage();
+
+      const email = loginEmail.value.trim();
+      const password = loginPass.value;
+
+      if (!email) return showError('Please enter your email.');
+      if (!password) return showError('Please enter your password.');
+
+      signInWithEmailAndPassword(auth, email, password)
+        .then(userCredential => {
+          showSuccess('Logged in successfully.');
+          loginEmail.value = '';
+          loginPass.value = '';
+        })
+        .catch(error => {
+          showError(error.message);
+        });
+    });
+
+    // Logout
+    logoutBtn.addEventListener('click', () => {
+      signOut(auth)
+        .then(() => {
+          authArea.style.display = 'block';
+          userInfo.style.display = 'none';
+          clearMessage();
+        });
+    });
+
+    // Auth state observer
+    onAuthStateChanged(auth, user => {
+      if (user) {
+        authArea.style.display = 'none';
+        userInfo.style.display = 'block';
+        userNameSpan.textContent = user.displayName || user.email;
+        clearMessage();
+      } else {
+        authArea.style.display = 'block';
+        userInfo.style.display = 'none';
       }
     });
   </script>
