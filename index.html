@@ -430,9 +430,11 @@
   document.getElementById('caseSearch').addEventListener('input', applyCaseSearch);
 
   // ===== MARK CASE AS COMPLETED =====
-async function markCaseCompleted(caseId) {
+// ===== MARK CASE AS COMPLETED =====
+async function markCaseCompleted(uid, caseKey) {
   try {
-    const caseSnap = await db.ref('cases/' + caseId).get();
+    // 🔹 1. Get the specific case
+    const caseSnap = await db.ref(`cases/${uid}/${caseKey}`).get();
     if (!caseSnap.exists()) {
       alert('Case not found!');
       return;
@@ -445,16 +447,15 @@ async function markCaseCompleted(caseId) {
       completedAt: new Date().toISOString()
     };
 
-    // ✅ 1. Copy to doneAssign node
-    await db.ref('doneAssign/' + caseId).set(completedData);
+    // 🔹 2. Copy it to doneAssign node
+    await db.ref(`doneAssign/${caseKey}`).set(completedData);
 
-    // ✅ 2. Update case status (don’t remove it)
-    await db.ref('cases/' + caseId).update({
-      status: 'completed'
-    });
+    // 🔹 3. Update status in cases (don’t remove)
+    await db.ref(`cases/${uid}/${caseKey}`).update({ status: 'completed' });
 
-    // Optional: show confirmation or refresh
-    alert('Case marked as completed successfully!');
+    // 🔹 4. Refresh UI
+    loadUserCases(uid);
+    alert('✅ Case marked as completed!');
   } catch (error) {
     console.error('Error marking completed:', error);
     alert('An error occurred while completing the case.');
