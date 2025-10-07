@@ -430,41 +430,24 @@
   document.getElementById('caseSearch').addEventListener('input', applyCaseSearch);
 
   // ===== MARK CASE AS COMPLETED =====
-async function markCaseCompleted(uid, caseKey) {
+  async function markCaseComplete(uid, cid) {
   try {
-    const caseSnap = await db.ref(`cases/${uid}/${caseKey}`).get();
+    // get user case data
+    const caseSnap = await db.ref(`userCases/${uid}/${cid}`).get();
     if (!caseSnap.exists()) {
-      alert('Case not found!');
+      showToast("Case not found", "warning");
       return;
     }
 
-    const caseData = caseSnap.val();
-    const userSnap = await db.ref(`users/${uid}`).get(); // ✅ get user info from Firebase
-    const userData = userSnap.val() || {};
+    // update only the user’s side
+    await db.ref(`userCases/${uid}/${cid}/status`).set('completed');
 
-    const completedData = {
-      ...caseData,
-      user: userData.name || caseData.user || 'Unknown User',
-      email: userData.email || caseData.email || '',
-      level: userData.level || '',
-      status: 'completed',
-      completedAt: new Date().toISOString()
-    };
-
-    // ✅ Save to doneAssign
-    await db.ref(`doneAssign/${caseKey}`).set(completedData);
-
-    // ✅ Update original case
-    await db.ref(`cases/${uid}/${caseKey}`).update({
-      status: 'completed'
-    });
-
-    alert('✅ Case marked as completed successfully!');
-  } catch (error) {
-    console.error('Error marking completed:', error);
-    alert('An error occurred while completing the case.');
+    showToast("✅ Case marked completed (user only)", "success");
+  } catch (e) {
+    console.error(e);
+    showToast("Failed to mark complete", "error");
   }
-}
+    }
 
   // === AUTH STATE LISTENER ===
   auth.onAuthStateChanged(async user => {
