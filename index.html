@@ -406,7 +406,7 @@
         ? `<span class='status-badge completed'>✅ Completed</span>`
         : `<span class='status-badge pending'>Pending</span>`;
       const action = c.status === "completed" ? "—"
-        : `<button onclick="markCaseCompleted('${uid}','${key}')">Mark Completed</button>`;
+        : `<button onclick="markCaseComplete('${uid}','${cid}', event)">Mark Completed</button>
       tbody.innerHTML += `
         <tr>
           <td>${c.type}</td>
