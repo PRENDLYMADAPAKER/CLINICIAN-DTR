@@ -430,24 +430,44 @@
   document.getElementById('caseSearch').addEventListener('input', applyCaseSearch);
 
   // ===== MARK CASE AS COMPLETED =====
-  async function markCaseComplete(uid, cid) {
+  let markInProgress = false; // prevent double clicks
+
+async function markCaseComplete(uid, cid) {
+  if (markInProgress) return; // ✅ block double tap
+  markInProgress = true;
+
   try {
-    // get user case data
+    // ✅ disable button immediately to avoid iPhone double trigger
+    const btn = event?.target;
+    if (btn) {
+      btn.disabled = true;
+      btn.innerText = "⏳ Processing...";
+    }
+
+    // ✅ fetch the case first (ensure data exists)
     const caseSnap = await db.ref(`userCases/${uid}/${cid}`).get();
     if (!caseSnap.exists()) {
-      showToast("Case not found", "warning");
+      showToast("⚠️ Case not found", "warning");
       return;
     }
 
-    // update only the user’s side
-    await db.ref(`userCases/${uid}/${cid}/status`).set('completed');
+    // ✅ safely mark completed only for the user
+    await db.ref(`userCases/${uid}/${cid}/status`).set("completed");
 
     showToast("✅ Case marked completed (user only)", "success");
   } catch (e) {
     console.error(e);
-    showToast("Failed to mark complete", "error");
-  }
+    showToast("❌ Failed to mark complete", "error");
+  } finally {
+    // ✅ restore button state
+    const btn = event?.target;
+    if (btn) {
+      btn.disabled = false;
+      btn.innerText = "Mark Completed";
     }
+    markInProgress = false;
+  }
+}
 
   // === AUTH STATE LISTENER ===
   auth.onAuthStateChanged(async user => {
