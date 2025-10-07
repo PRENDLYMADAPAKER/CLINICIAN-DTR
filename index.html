@@ -429,10 +429,37 @@
   }
   document.getElementById('caseSearch').addEventListener('input', applyCaseSearch);
 
-  async function markCaseCompleted(uid, caseId) {
-    await db.ref('cases/' + uid + '/' + caseId).update({ status: "completed" });
-    loadUserCases(uid);
+  // ===== MARK CASE AS COMPLETED =====
+async function markCaseCompleted(caseId) {
+  try {
+    const caseSnap = await db.ref('cases/' + caseId).get();
+    if (!caseSnap.exists()) {
+      alert('Case not found!');
+      return;
+    }
+
+    const caseData = caseSnap.val();
+    const completedData = {
+      ...caseData,
+      status: 'completed',
+      completedAt: new Date().toISOString()
+    };
+
+    // ✅ 1. Copy to doneAssign node
+    await db.ref('doneAssign/' + caseId).set(completedData);
+
+    // ✅ 2. Update case status (don’t remove it)
+    await db.ref('cases/' + caseId).update({
+      status: 'completed'
+    });
+
+    // Optional: show confirmation or refresh
+    alert('Case marked as completed successfully!');
+  } catch (error) {
+    console.error('Error marking completed:', error);
+    alert('An error occurred while completing the case.');
   }
+}
 
   // === AUTH STATE LISTENER ===
   auth.onAuthStateChanged(async user => {
