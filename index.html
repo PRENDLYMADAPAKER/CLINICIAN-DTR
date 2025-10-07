@@ -607,37 +607,43 @@ async function markCaseComplete(uid, cid, event) {
   </script>
 
 <style>
-  /* Fade-in footer animation */
+  /* Footer styling */
   @keyframes fadeInFooter {
     from { opacity: 0; transform: translateY(8px); }
     to { opacity: 1; transform: translateY(0); }
   }
 
-  footer.fixed-footer {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
+  footer.page-footer {
     width: 100%;
     text-align: center;
-    padding: 10px 0;
+    padding: 12px 0;
     font-family: 'Poppins', Arial, sans-serif;
     font-size: 13px;
     color: #5a437c;
     opacity: 0.85;
     background: transparent;
-    z-index: 9999;
     border: none;
     animation: fadeInFooter 1.2s ease-out;
   }
 
+  /* makes footer stay at bottom if content is short */
+  html, body {
+    height: 100%;
+  }
   body {
-    margin: 0;
-    padding-bottom: 50px; /* ensures content not hidden behind footer */
+    display: flex;
+    flex-direction: column;
+  }
+  main {
+    flex: 1; /* pushes footer down */
   }
 </style>
 
-<footer class="fixed-footer">
+<main>
+  <!-- put all your app content here -->
+</main>
+
+<footer class="page-footer">
   Created by <strong>Noriel Zamora Magno</strong><br>
   &copy; 2025 &nbsp;|&nbsp; To God Be the Glory
 </footer>
