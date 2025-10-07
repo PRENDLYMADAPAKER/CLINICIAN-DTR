@@ -607,24 +607,20 @@ async function markCaseComplete(uid, cid, event) {
   </script>
 
 <style>
-  /* Footer fade-in animation */
+  /* Fade-in footer animation */
   @keyframes fadeInFooter {
     from { opacity: 0; transform: translateY(8px); }
-    to   { opacity: 0.85; transform: translateY(0); }
+    to { opacity: 1; transform: translateY(0); }
   }
 
-  body {
-    padding-bottom: 45px;
-    margin: 0;
-  }
-
-  #appFooter {
+  footer.fixed-footer {
     position: fixed;
     bottom: 0;
     left: 0;
+    right: 0;
     width: 100%;
     text-align: center;
-    padding: 8px 0;
+    padding: 10px 0;
     font-family: 'Poppins', Arial, sans-serif;
     font-size: 13px;
     color: #5a437c;
@@ -632,12 +628,16 @@ async function markCaseComplete(uid, cid, event) {
     background: transparent;
     z-index: 9999;
     border: none;
-    pointer-events: none;
     animation: fadeInFooter 1.2s ease-out;
+  }
+
+  body {
+    margin: 0;
+    padding-bottom: 50px; /* ensures content not hidden behind footer */
   }
 </style>
 
-<footer id="appFooter">
+<footer class="fixed-footer">
   Created by <strong>Noriel Zamora Magno</strong><br>
   &copy; 2025 &nbsp;|&nbsp; To God Be the Glory
 </footer>
