@@ -606,11 +606,21 @@ async function markCaseComplete(uid, cid, event) {
   };
   </script>
 
+</script>
+
 <style>
-  /* Footer styling */
-  @keyframes fadeInFooter {
-    from { opacity: 0; transform: translateY(8px); }
-    to { opacity: 1; transform: translateY(0); }
+  html, body {
+    height: 100%;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  main {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   footer.page-footer {
@@ -626,26 +636,15 @@ async function markCaseComplete(uid, cid, event) {
     animation: fadeInFooter 1.2s ease-out;
   }
 
-  /* makes footer stay at bottom if content is short */
-  html, body {
-    height: 100%;
-  }
-  body {
-    display: flex;
-    flex-direction: column;
-  }
-  main {
-    flex: 1; /* pushes footer down */
+  @keyframes fadeInFooter {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
   }
 </style>
 
-<main>
-  <!-- put all your app content here -->
-</main>
-
 <footer class="page-footer">
   Created by <strong>Noriel Zamora Magno</strong><br>
-  &copy; 2025 &nbsp;|&nbsp; To God Be the Glory
+  &copy; 2025 | To God Be the Glory
 </footer>
 
 </body>
