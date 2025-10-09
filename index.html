@@ -451,7 +451,7 @@
   }
   document.getElementById('caseSearch').addEventListener('input', applyCaseSearch);
 
-    // ===== MARK CASE AS COMPLETED (SAFE + SYNCED) =====
+    // ===== MARK CASE AS COMPLETED (User side only) =====
 let markInProgress = false;
 
 async function markCaseComplete(uid, cid, event) {
@@ -465,34 +465,28 @@ async function markCaseComplete(uid, cid, event) {
       btn.innerText = "⏳ Processing...";
     }
 
+    // ✅ Only update the user's own copy
     const caseRef = db.ref(`userCases/${uid}/${cid}`);
     const caseSnap = await caseRef.get();
 
     if (!caseSnap.exists()) {
-      showToast("⚠️ Case not found", "warning");
+      showToast("⚠️ Case not found on user side", "warning");
       return;
     }
 
     const caseData = caseSnap.val();
 
-    // ✅ Update both user & admin versions safely (no push, no duplicates)
-    const updates = {};
-    updates[`userCases/${uid}/${cid}/status`] = "completed";
-    updates[`cases/${uid}/${cid}/status`] = "completed";
-
-    // ✅ Also mark it in doneAssign if not already there
-    updates[`doneAssign/${uid}/${cid}`] = {
-      ...caseData,
+    // ✅ Update status only in user's node, not admin's
+    await caseRef.update({
       status: "completed",
-      doneAt: Date.now(),
-    };
+      completedAt: Date.now()
+    });
 
-    await db.ref().update(updates);
+    // 🚫 Do NOT touch admin nodes like `cases/` or `doneAssign/`
+    showToast("✅ Case marked as completed (user only)", "success");
 
-    showToast("✅ Case marked completed (synced with admin)", "success");
-    loadUserCases(uid);
   } catch (e) {
-    console.error(e);
+    console.error("Mark complete error:", e);
     showToast("❌ Failed to mark complete", "error");
   } finally {
     const btn = event?.target;
