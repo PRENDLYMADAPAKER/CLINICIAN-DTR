@@ -438,7 +438,7 @@
   }
   document.getElementById('caseSearch').addEventListener('input', applyCaseSearch);
 
-  // ===== MARK CASE AS COMPLETED =====
+    // ===== MARK CASE AS COMPLETED (SAFE + SYNCED) =====
 let markInProgress = false;
 
 async function markCaseComplete(uid, cid, event) {
@@ -452,14 +452,32 @@ async function markCaseComplete(uid, cid, event) {
       btn.innerText = "⏳ Processing...";
     }
 
-    const caseSnap = await db.ref(`userCases/${uid}/${cid}`).get();
+    const caseRef = db.ref(`userCases/${uid}/${cid}`);
+    const caseSnap = await caseRef.get();
+
     if (!caseSnap.exists()) {
       showToast("⚠️ Case not found", "warning");
       return;
     }
 
-    await db.ref(`userCases/${uid}/${cid}/status`).set("completed");
-    showToast("✅ Case marked completed (user only)", "success");
+    const caseData = caseSnap.val();
+
+    // ✅ Update both user & admin versions safely (no push, no duplicates)
+    const updates = {};
+    updates[`userCases/${uid}/${cid}/status`] = "completed";
+    updates[`cases/${uid}/${cid}/status`] = "completed";
+
+    // ✅ Also mark it in doneAssign if not already there
+    updates[`doneAssign/${uid}/${cid}`] = {
+      ...caseData,
+      status: "completed",
+      doneAt: Date.now(),
+    };
+
+    await db.ref().update(updates);
+
+    showToast("✅ Case marked completed (synced with admin)", "success");
+    loadUserCases(uid);
   } catch (e) {
     console.error(e);
     showToast("❌ Failed to mark complete", "error");
@@ -472,7 +490,7 @@ async function markCaseComplete(uid, cid, event) {
     markInProgress = false;
   }
 }
-
+  
   // === AUTH STATE LISTENER ===
 auth.onAuthStateChanged(async user => {
   if (user) {
