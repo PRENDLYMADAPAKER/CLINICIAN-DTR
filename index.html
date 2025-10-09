@@ -395,29 +395,38 @@
   }
 
   async function loadUserCases(uid) {
-    const tbody = document.getElementById('caseBody');
-    const snap = await db.ref('userCases/' + uid).get();
-    tbody.innerHTML = "";
-    if (!snap.exists()) { tbody.innerHTML = "<tr><td colspan='5' class='muted'>No cases</td></tr>"; return; }
-    snap.forEach(child => {
-      const key = child.key; const c = child.val();
-      const date = new Date(c.timestamp).toLocaleString();
-      const status = c.status === "completed"
-        ? `<span class='status-badge completed'>✅ Completed</span>`
-        : `<span class='status-badge pending'>Pending</span>`;
-      const action = c.status === "completed" ? "—"
-        : `<button onclick="markCaseComplete('${uid}','${cid}', event)">Mark Completed</button>`;
-      tbody.innerHTML += `
-        <tr>
-          <td>${c.type}</td>
-          <td>${c.details}<br><span class='muted'>Instructor: ${c.instructor || "Pending"}</span></td>
-          <td>${date}</td>
-          <td>${status}</td>
-          <td>${action}</td>
-        </tr>`;
-    });
-    applyCaseSearch();
+  const tbody = document.getElementById('caseBody');
+  tbody.innerHTML = "";
+
+  const snap = await db.ref('userCases/' + uid).get();
+  if (!snap.exists()) {
+    tbody.innerHTML = "<tr><td colspan='5' class='muted'>No cases</td></tr>";
+    return;
   }
+
+  snap.forEach(child => {
+    const cid = child.key; // ✅ use cid instead of undefined variable
+    const c = child.val();
+    const date = new Date(c.timestamp).toLocaleString();
+    const status = c.status === "completed"
+      ? `<span class='status-badge completed'>✅ Completed</span>`
+      : `<span class='status-badge pending'>Pending</span>`;
+    const action = c.status === "completed"
+      ? "—"
+      : `<button onclick="markCaseComplete('${uid}','${cid}', event)">Mark Completed</button>`;
+
+    tbody.innerHTML += `
+      <tr>
+        <td>${c.type}</td>
+        <td>${c.details}<br><span class='muted'>Instructor: ${c.instructor || "Pending"}</span></td>
+        <td>${date}</td>
+        <td>${status}</td>
+        <td>${action}</td>
+      </tr>`;
+  });
+
+  applyCaseSearch();
+      }
 
   function applyCaseSearch() {
     const input = document.getElementById('caseSearch').value.toLowerCase();
