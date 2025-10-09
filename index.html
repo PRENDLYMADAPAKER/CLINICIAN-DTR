@@ -396,37 +396,50 @@
 
   async function loadUserCases(uid) {
   const tbody = document.getElementById('caseBody');
-  tbody.innerHTML = "";
+  tbody.innerHTML = "<tr><td colspan='5' class='muted'>Loading cases...</td></tr>";
 
-  const snap = await db.ref('userCases/' + uid).get();
-  if (!snap.exists()) {
-    tbody.innerHTML = "<tr><td colspan='5' class='muted'>No cases</td></tr>";
-    return;
+  // Remove any existing listener before adding a new one (prevents duplicates)
+  if (window.userCasesListener) {
+    db.ref('userCases/' + uid).off('value', window.userCasesListener);
   }
 
-  snap.forEach(child => {
-    const cid = child.key; // ✅ use cid instead of undefined variable
-    const c = child.val();
-    const date = new Date(c.timestamp).toLocaleString();
-    const status = c.status === "completed"
-      ? `<span class='status-badge completed'>✅ Completed</span>`
-      : `<span class='status-badge pending'>Pending</span>`;
-    const action = c.status === "completed"
-      ? "—"
-      : `<button onclick="markCaseComplete('${uid}','${cid}', event)">Mark Completed</button>`;
+  // Define a listener function
+  window.userCasesListener = db.ref('userCases/' + uid).on('value', snap => {
+    tbody.innerHTML = "";
+    const seen = new Set();
 
-    tbody.innerHTML += `
-      <tr>
-        <td>${c.type}</td>
-        <td>${c.details}<br><span class='muted'>Instructor: ${c.instructor || "Pending"}</span></td>
-        <td>${date}</td>
-        <td>${status}</td>
-        <td>${action}</td>
-      </tr>`;
+    if (!snap.exists()) {
+      tbody.innerHTML = "<tr><td colspan='5' class='muted'>No cases</td></tr>";
+      return;
+    }
+
+    snap.forEach(child => {
+      const cid = child.key;
+      if (seen.has(cid)) return;
+      seen.add(cid);
+
+      const c = child.val() || {};
+      const date = c.timestamp ? new Date(c.timestamp).toLocaleString() : "-";
+      const status = c.status === "completed"
+        ? `<span class='status-badge completed'>✅ Completed</span>`
+        : `<span class='status-badge pending'>Pending</span>`;
+      const action = c.status === "completed"
+        ? "—"
+        : `<button onclick="markCaseComplete('${uid}','${cid}', event)">Mark Completed</button>`;
+
+      tbody.innerHTML += `
+        <tr id="case-${cid}">
+          <td>${c.type || "-"}</td>
+          <td>${c.details || ""}<br><span class='muted'>Instructor: ${c.instructor || "Pending"}</span></td>
+          <td>${date}</td>
+          <td>${status}</td>
+          <td>${action}</td>
+        </tr>`;
+    });
+
+    applyCaseSearch();
   });
-
-  applyCaseSearch();
-      }
+  }
 
   function applyCaseSearch() {
     const input = document.getElementById('caseSearch').value.toLowerCase();
