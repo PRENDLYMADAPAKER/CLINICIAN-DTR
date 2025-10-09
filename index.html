@@ -554,40 +554,62 @@ async function markCaseComplete(uid, cid, event) {
   };
 
   async function submitCase() {
-    const user = auth.currentUser;
-    if (!user) return;
-    const status = document.getElementById('caseStatus');
-    let caseData = { type:"", details:"", instructor:"Pending", timestamp: Date.now(), status:"pending" };
-    
-    const activeTab = document.querySelector('.tabBtn.active').dataset.tab;
+  const user = auth.currentUser;
+  if (!user) return;
 
-    if (activeTab === "livePatient") {
-      caseData.type = "Live Patient";
-      caseData.details = `Patient: ${document.getElementById('lpPatient').value}, Procedure: ${document.getElementById('lpProcedure').value}, Mastercard: ${document.getElementById('lpMaster').value || "N/A"}`;
-    } 
-    else if (activeTab === "typodonts") {
-      caseData.type = "Typodonts";
-      if (typoCaseType.value === "pfm") {
-        caseData.details = `PFM/FPD: ${document.getElementById('typoPfm').value || "N/A"}, Mastercard: ${document.getElementById('typoMasterPfm').value || "N/A"}`;
-      } else if (typoCaseType.value === "restorative") {
-        caseData.details = `Restorative: ${document.getElementById('typoRest').value || "N/A"}, Mastercard: ${document.getElementById('typoMasterRest').value || "N/A"}`;
-      } else {
-        status.textContent = "Please select Typodonts case type.";
-        status.className = "error";
-        return;
-      }
-    } 
-    else if (activeTab === "cast") {
-      caseData.type = "CAST";
-      caseData.details = `Type: ${document.getElementById('castType').value || "N/A"}, Mastercard: ${document.getElementById('castMaster').value || "N/A"}`;
+  const status = document.getElementById('caseStatus');
+  let caseData = {
+    type: "",
+    details: "",
+    instructor: "Pending",
+    timestamp: Date.now(),
+    status: "pending"
+  };
+
+  const activeTab = document.querySelector('.tabBtn.active').dataset.tab;
+
+  if (activeTab === "livePatient") {
+    caseData.type = "Live Patient";
+    caseData.details = `Patient: ${document.getElementById('lpPatient').value}, Procedure: ${document.getElementById('lpProcedure').value}, Mastercard: ${document.getElementById('lpMaster').value || "N/A"}`;
+  } 
+  else if (activeTab === "typodonts") {
+    caseData.type = "Typodonts";
+    if (typoCaseType.value === "pfm") {
+      caseData.details = `PFM/FPD: ${document.getElementById('typoPfm').value || "N/A"}, Mastercard: ${document.getElementById('typoMasterPfm').value || "N/A"}`;
+    } else if (typoCaseType.value === "restorative") {
+      caseData.details = `Restorative: ${document.getElementById('typoRest').value || "N/A"}, Mastercard: ${document.getElementById('typoMasterRest').value || "N/A"}`;
+    } else {
+      status.textContent = "Please select Typodonts case type.";
+      status.className = "error";
+      return;
     }
-
-    await db.ref('cases/' + user.uid).push(caseData);
-    status.textContent = "Case submitted successfully!";
-    status.className = "success";
-    loadUserCases(user.uid);
-    setTimeout(() => { caseModal.style.display = 'none'; status.textContent = ""; }, 1000);
+  } 
+  else if (activeTab === "cast") {
+    caseData.type = "CAST";
+    caseData.details = `Type: ${document.getElementById('castType').value || "N/A"}, Mastercard: ${document.getElementById('castMaster').value || "N/A"}`;
   }
+
+  // ✅ Generate unique ID for the case
+  const caseRef = db.ref('cases/' + user.uid).push();
+  const caseId = caseRef.key;
+
+  // ✅ Save to Admin Panel
+  await caseRef.set(caseData);
+
+  // ✅ Also save to User Panel
+  await db.ref(`userCases/${user.uid}/${caseId}`).set(caseData);
+
+  // ✅ UI feedback
+  status.textContent = "Case submitted successfully!";
+  status.className = "success";
+
+  // ✅ Reload and close modal
+  await loadUserCases(user.uid);
+  setTimeout(() => {
+    caseModal.style.display = 'none';
+    status.textContent = "";
+  }, 1000);
+    }
 
   // === SECTION TOGGLES ===
   const dtrBtn = document.getElementById('dtrBtn');
