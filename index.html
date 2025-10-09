@@ -396,7 +396,7 @@
 
   async function loadUserCases(uid) {
     const tbody = document.getElementById('caseBody');
-    const snap = await db.ref('cases/' + uid).get();
+    const snap = await db.ref('userCases/' + uid).get();
     tbody.innerHTML = "";
     if (!snap.exists()) { tbody.innerHTML = "<tr><td colspan='5' class='muted'>No cases</td></tr>"; return; }
     snap.forEach(child => {
@@ -465,49 +465,55 @@ async function markCaseComplete(uid, cid, event) {
 }
 
   // === AUTH STATE LISTENER ===
-  auth.onAuthStateChanged(async user => {
-    if (user) {
-      document.getElementById('authArea').style.display = 'none';
-      document.getElementById('registerArea').style.display = 'none';
-      document.getElementById('forgotArea').style.display = 'none';
-      document.getElementById('userPanel').style.display = 'block';
+auth.onAuthStateChanged(async user => {
+  if (user) {
+    document.getElementById('authArea').style.display = 'none';
+    document.getElementById('registerArea').style.display = 'none';
+    document.getElementById('forgotArea').style.display = 'none';
+    document.getElementById('userPanel').style.display = 'block';
 
-      const profileSnap = await db.ref('users/' + user.uid + '/profile').get();
-      const profile = profileSnap.exists() ? profileSnap.val() : {};
-      document.getElementById('nameDisplay').textContent = profile.name || user.email;
-      document.getElementById('emailDisplay').textContent = profile.email || '';
-      document.getElementById('levelDisplay').textContent = profile.clinicalLevel ? `Clinical Level: ${profile.clinicalLevel}` : '';
-      document.getElementById('lpClinician').value = profile.name || user.email;
+    const profileSnap = await db.ref('users/' + user.uid + '/profile').get();
+    const profile = profileSnap.exists() ? profileSnap.val() : {};
+    document.getElementById('nameDisplay').textContent = profile.name || user.email;
+    document.getElementById('emailDisplay').textContent = profile.email || '';
+    document.getElementById('levelDisplay').textContent = profile.clinicalLevel ? `Clinical Level: ${profile.clinicalLevel}` : '';
+    document.getElementById('lpClinician').value = profile.name || user.email;
 
-      const qrDiv = document.getElementById('qr');
-      qrDiv.innerHTML = "";
-      new QRCode(qrDiv, { text: user.uid, width: 160, height: 160 });
+    const qrDiv = document.getElementById('qr');
+    qrDiv.innerHTML = "";
+    new QRCode(qrDiv, { text: user.uid, width: 160, height: 160 });
 
-      const today = new Date().toISOString().slice(0,10);
-      const caseBtn = document.getElementById('openCaseModal');
-      db.ref('users/' + user.uid + '/dtr/' + today).on('value', snap => {
-        if (snap.exists() && snap.val().timeIn) {
-          caseBtn.disabled = false;
-          caseBtn.style.opacity = "1";
-          caseBtn.style.cursor = "pointer";
-          caseBtn.title = "Add a new case";
-        } else {
-          caseBtn.disabled = true;
-          caseBtn.style.opacity = "0.5";
-          caseBtn.style.cursor = "not-allowed";
-          caseBtn.title = "Please Time In first";
-        }
-      });
+    const today = new Date().toISOString().slice(0,10);
+    const caseBtn = document.getElementById('openCaseModal');
+    db.ref('users/' + user.uid + '/dtr/' + today).on('value', snap => {
+      if (snap.exists() && snap.val().timeIn) {
+        caseBtn.disabled = false;
+        caseBtn.style.opacity = "1";
+        caseBtn.style.cursor = "pointer";
+        caseBtn.title = "Add a new case";
+      } else {
+        caseBtn.disabled = true;
+        caseBtn.style.opacity = "0.5";
+        caseBtn.style.cursor = "not-allowed";
+        caseBtn.title = "Please Time In first";
+      }
+    });
 
-      loadUserDTR(user.uid);
+    loadUserDTR(user.uid);
+    loadUserCases(user.uid);
+
+    // ✅ Add this line — auto-refresh when userCases data changes
+    db.ref(`userCases/${user.uid}`).on('value', () => {
       loadUserCases(user.uid);
-    } else {
-      document.getElementById('authArea').style.display = 'block';
-      document.getElementById('registerArea').style.display = 'none';
-      document.getElementById('forgotArea').style.display = 'none';
-      document.getElementById('userPanel').style.display = 'none';
-    }
-  });
+    });
+
+  } else {
+    document.getElementById('authArea').style.display = 'block';
+    document.getElementById('registerArea').style.display = 'none';
+    document.getElementById('forgotArea').style.display = 'none';
+    document.getElementById('userPanel').style.display = 'none';
+  }
+});
 
   // === SETTINGS & CASE MODALS ===
   const settingsModal = document.getElementById('settingsModal');
