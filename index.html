@@ -539,13 +539,9 @@ auth.onAuthStateChanged(async user => {
       }
     });
 
+    // ✅ Load user data
     loadUserDTR(user.uid);
     loadUserCases(user.uid);
-
-    // ✅ Add this line — auto-refresh when userCases data changes
-    db.ref(`userCases/${user.uid}`).on('value', () => {
-      loadUserCases(user.uid);
-    });
 
   } else {
     document.getElementById('authArea').style.display = 'block';
