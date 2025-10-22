@@ -4,6 +4,16 @@
   <meta charset="utf-8" />
   <title>Clinician DTR - User Panel</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
+
+  <link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#a855f7">
+
+<!-- iOS support -->
+<link rel="apple-touch-icon" href="https://i.imgur.com/sjdlb28.jpeg">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Clinician DTR">
+  
   <style>
   body {
     font-family: Inter, system-ui, Arial, sans-serif;
@@ -691,6 +701,16 @@ auth.onAuthStateChanged(async user => {
   Created by <strong>NZM</strong><br>
   &copy; 2025 | To God Be the Glory
 </footer>
+
+  <script>
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./service-worker.js")
+      .then(() => console.log("✅ Service Worker Registered"))
+      .catch(err => console.error("SW registration failed:", err));
+  });
+}
+  </script>
 
 </body>
 </html>
