@@ -1,0 +1,21 @@
+{
+  "name": "Clinician DTR",
+  "short_name": "DTR",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#a855f7",
+  "description": "DTR Clinician User Panel",
+  "icons": [
+    {
+      "src": "https://i.imgur.com/sjdlb28.jpeg",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://i.imgur.com/sjdlb28.jpeg",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
